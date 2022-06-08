@@ -130,3 +130,5 @@ dmypy.json
 
 # Secret information
 creds/
+configs/
+.vscode/

@@ -1,18 +1,18 @@
+import json
 import os
-from time import sleep, time
+from helpers import read_config
 
 from google_auth_httplib2 import httplib2
 from googleapiclient.discovery import build
 from oauth2client.service_account import ServiceAccountCredentials
 
-test_sheet_id = "1JVYiqcp2DSfrWtJ0k6958Hbnh72JrNp9ZBa44xe4pUk"
-bd_copy_sheet_id = "1l3vciNsmdnM9-xZs0224PoM2-s0oZL6U1LJIzfvyYxg"
-creds_file = "/creds/api_key.json"
-
+config = read_config()
+bd_id = config["SHEETS"]["target_sheet_link"]
+creds_file = "/creds/" + config["SHEETS"]["sacc_creds_file"]
 
 def get_service_sacc():
     creds_json = os.path.dirname(__file__) + creds_file
-    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    scopes = "https://www.googleapis.com/auth/spreadsheets"
 
     creds_service = ServiceAccountCredentials.from_json_keyfile_name(
         creds_json, scopes
@@ -22,17 +22,12 @@ def get_service_sacc():
 
 sheets = get_service_sacc().spreadsheets()
 
-resp = (
-    sheets.values()
-    .batchGet(
-        spreadsheetId=bd_copy_sheet_id, ranges=["КАО", "ЦАО", "ЛАО", "САО", "ОАО"]
-    )
-    .execute()
-)
-with open("regions.json", "w") as f:
-    import json
-
-    json.dump(resp, f)
+ranges = ["Промо", "Карты", "КАО", "ЦАО", "ЛАО", "САО", "ОАО"]
+resp = sheets.values().batchGet(spreadsheetId=bd_id, ranges=ranges)
+resp = resp.execute()
+# with open("regions.json", "w") as f:
+#     json.dump(resp, f)
+print(resp["valueRanges"][0])
 # resp = (
 #     get_service_sacc()
 #     .spreadsheets()
@@ -70,7 +65,8 @@ with open("regions.json", "w") as f:
 #         valueInputOption="RAW",
 #         body={"values": [[time(), time()]]},
 #     ).execute()
-#     # sheets.values().batchUpdate(spreadsheetId=bd_copy_sheet_id, body=body).execute()
+#     # sheets.values().batchUpdate(spreadsheetId=bd_copy_sheet_id, body=body)
+# .execute()
 #     i += 1
 #     sleep(1)
 
