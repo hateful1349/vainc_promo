@@ -132,3 +132,6 @@ dmypy.json
 creds/
 configs/
 .vscode/
+.idea/
+promo_db.json
+regions.json

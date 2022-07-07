@@ -1,7 +1,7 @@
 import configparser
 import json
 import os
-from typing import Tuple
+from typing import Dict, List, Tuple
 
 
 def read_config():
@@ -10,26 +10,25 @@ def read_config():
     return config
 
 
-def collect_maps_codes(maps: dict):
+def collect_maps_codes(maps: dict) -> List[str]:
     res = []
     for rg_letter, rg in maps.items():
         for rg_number in rg.keys():
-            res.append(f"{rg_letter}{rg_number}")
+            res.append(rg_letter + rg_number)
     return res
 
 
-def collect_addrs(maps: dict):
+def collect_addresses(maps: dict) -> List[str]:
     res = []
     for map_codes in maps.values():
-        for _, mp in map_codes.items():
+        for mp in map_codes.values():
             for addr in mp["range"]:
                 res.append(" ".join(addr))
     return res
 
 
-def collect_maps(sheet_file):
-    sheet = dict()
-    with open(sheet_file, "r") as f:
+def collect_maps(sheet_file) -> Dict[str, Dict[str, Dict[str, str | List[str]]]]:
+    with open(sheet_file) as f:
         sheet = json.load(f)
     maps = dict()
     for region in sheet["valueRanges"]:
@@ -58,7 +57,117 @@ def find_matches_map(address: str, maps: dict):
                 return f"{reg_letter}{map_number}"
 
 
-def get_map(mp:str, maps: dict) -> Tuple[str, list]:
+def get_map(mp: str, maps: dict) -> Tuple[str, List[str]]:
     map_file = maps[mp[0]][mp[1:]]["file"]
-    map_addrs = maps[mp[0]][mp[1:]]["range"]
-    return map_file, map_addrs
+    map_addresses = maps[mp[0]][mp[1:]]["range"]
+    return map_file, map_addresses
+
+
+def set_chat_id(prom_id: str, chat_id: str):
+    db_file = read_config()["DB"]["db_file"]
+    with open(db_file, "r") as f:
+        db = json.load(f)
+    db["range"][str(prom_id)]["chat_id"] = chat_id
+    with open(db_file, "w", encoding="utf8") as f:
+        json.dump(db, f, ensure_ascii=False)
+
+
+def set_fname(prom_id: str, fname: str):
+    db_file = read_config()["DB"]["db_file"]
+    with open(db_file, "r") as f:
+        db = json.load(f)
+    db["range"][str(prom_id)] = {
+        "fname": "",
+        "lname": "",
+        "phone": "",
+        "address": "",
+        "chat_id": "",
+    }
+    db["range"][str(prom_id)]["fname"] = fname
+    with open(db_file, "w", encoding="utf8") as f:
+        json.dump(db, f, ensure_ascii=False)
+
+
+def set_lname(prom_id: str, lname: str):
+    db_file = read_config()["DB"]["db_file"]
+    with open(db_file, "r") as f:
+        db = json.load(f)
+    db["range"][str(prom_id)]["lname"] = lname
+    with open(db_file, "w", encoding="utf8") as f:
+        json.dump(db, f, ensure_ascii=False)
+
+
+def set_phone(prom_id: str, phone: str):
+    db_file = read_config()["DB"]["db_file"]
+    with open(db_file, "r") as f:
+        db = json.load(f)
+    db["range"][str(prom_id)]["phone"] = phone
+    with open(db_file, "w", encoding="utf8") as f:
+        json.dump(db, f, ensure_ascii=False)
+
+
+def set_address(prom_id: str, addr: str):
+    db_file = read_config()["DB"]["db_file"]
+    with open(db_file, "r") as f:
+        db = json.load(f)
+    db["range"][str(prom_id)]["address"] = addr
+    with open(db_file, "w", encoding="utf8") as f:
+        json.dump(db, f, ensure_ascii=False)
+
+
+def get_chat_id(
+    prom_id: str,
+) -> str:
+    db_file = read_config()["DB"]["db_file"]
+    with open(db_file, "r") as f:
+        db = json.load(f)
+    return db["range"][str(prom_id)]["chat_id"]
+
+
+def get_fname(
+    prom_id: str,
+) -> str:
+    db_file = read_config()["DB"]["db_file"]
+    with open(db_file, "r") as f:
+        db = json.load(f)
+    return db["range"][str(prom_id)]["fname"]
+
+
+def get_lname(
+    prom_id: str,
+) -> str:
+    db_file = read_config()["DB"]["db_file"]
+    with open(db_file, "r") as f:
+        db = json.load(f)
+    return db["range"][str(prom_id)]["lname"]
+
+
+def get_phone(
+    prom_id: str,
+) -> str:
+    db_file = read_config()["DB"]["db_file"]
+    with open(db_file, "r") as f:
+        db = json.load(f)
+    return db["range"][str(prom_id)]["phone"]
+
+
+def get_address(
+    prom_id: str,
+) -> str:
+    db_file = read_config()["DB"]["db_file"]
+    with open(db_file, "r") as f:
+        db = json.load(f)
+    return db["range"][str(prom_id)]["address"]
+
+
+class Singleton(type):
+    """
+    A singleton class.
+    """
+
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]

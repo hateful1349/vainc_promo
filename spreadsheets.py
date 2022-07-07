@@ -1,14 +1,16 @@
 import json
 import os
-from helpers import read_config
 
 from google_auth_httplib2 import httplib2
 from googleapiclient.discovery import build
 from oauth2client.service_account import ServiceAccountCredentials
 
+from helpers import read_config
+
 config = read_config()
-bd_id = config["SHEETS"]["target_sheet_link"]
-creds_file = "/creds/" + config["SHEETS"]["sacc_creds_file"]
+bd_id = config["GOOGLE_API"]["target_sheet_link"]
+creds_file = "/creds/" + config["GOOGLE_API"]["sacc_creds_file"]
+
 
 def get_service_sacc():
     creds_json = os.path.dirname(__file__) + creds_file
