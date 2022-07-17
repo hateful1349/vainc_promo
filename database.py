@@ -1,36 +1,12 @@
 import json
 import os
 from functools import reduce
-from typing import Dict, List, Tuple
 
 from yadisk import YaDisk, exceptions
 
-from helpers import Singleton, read_config
-
-
-class ApiTypeError(Exception):
-    def __init__(self):
-        print("Wrong API type")
-
-
-class TokenError(Exception):
-    def __init__(self, message=None):
-        if message is None:
-            print(
-                "Something with the token. Please check your oauth_token under YANDEX_API section in the configs/config.ini file."
-            )
-        else:
-            print(message)
-
-
-class API_FILE(Exception):
-    def __init__(self, message=None):
-        if message is None:
-            print(
-                "You need to specify required file in config file under YANDEX_API/wanted_file."
-            )
-        else:
-            print(message)
+from exceptions import API_FILE, ApiTypeError, TokenError
+from helpers import read_config
+from specials import Singleton
 
 
 class Sheet(metaclass=Singleton):
@@ -39,7 +15,7 @@ class Sheet(metaclass=Singleton):
     It is used to receive and send the necessary information in the table
     """
 
-    def __yandex_connect(cls):
+    def __yandex_connect(self):
         # check token in config file
         config = read_config()
         token = dict(config).get("YANDEX_API").get("oauth_token")
@@ -51,8 +27,8 @@ class Sheet(metaclass=Singleton):
         if not disk.check_token():
             raise TokenError("Can't connect to Yandex Disk API with your oauth_token")
 
-        cls._connection = True
-        cls._obj = "YANDEX"
+        self._connection = True
+        self._obj = "YANDEX"
 
         # downloading file
         # check if file for download is specified
@@ -71,7 +47,7 @@ class Sheet(metaclass=Singleton):
                 os.path.dirname(__file__) + dict(config).get("COMMON").get("sheet_file")
             )
 
-    def __google_connect(cls):
+    def __google_connect(self):
         print("Deprecated because of google's policy. Please use Yandex instead.")
 
     _connection = None
@@ -95,24 +71,25 @@ class Sheet(metaclass=Singleton):
         :type argument for Google or Yandex API
         available types - (g)oogle | (y)andex
         """
+        if cls._connection is not None:
+            return
         api_type = api_type.lower()
-        if cls._connection is None:
-            if api_type not in set(cls._supported_api.keys()) | set(
-                reduce(
-                    lambda a, b: a + b,
-                    map(lambda v: v["short"], cls._supported_api.values()),
-                )
-            ):
-                raise ApiTypeError
-            connection_func = None
-            if cls._supported_api.get(api_type):
-                connection_func = cls._supported_api[api_type]["connection"]
-            else:
-                for v in cls._supported_api.values():
-                    if api_type in v["short"]:
-                        connection_func = v["connection"]
-                        break
-            connection_func(cls)
+        if api_type not in set(cls._supported_api.keys()) | set(
+            reduce(
+                lambda a, b: a + b,
+                map(lambda v: v["short"], cls._supported_api.values()),
+            )
+        ):
+            raise ApiTypeError
+        connection_func = None
+        if cls._supported_api.get(api_type):
+            connection_func = cls._supported_api[api_type]["connection"]
+        else:
+            for v in cls._supported_api.values():
+                if api_type in v["short"]:
+                    connection_func = v["connection"]
+                    break
+        connection_func(cls)
 
     @classmethod
     def get_connection(cls):
@@ -121,9 +98,6 @@ class Sheet(metaclass=Singleton):
 
 class SheetParser(metaclass=Singleton):
     _file = None
-    _maps = None
-    _addresses = None
-    _map_codes = None
 
     def __init__(cls, file: str = None) -> None:
         super().__init__()
@@ -143,68 +117,115 @@ class SheetParser(metaclass=Singleton):
     def get_file(cls):
         return cls._file
 
-    @classmethod
-    def collect_maps_codes(maps: dict) -> List[str]:
-        res = []
-        for rg_letter, rg in maps.items():
-            for rg_number in rg.keys():
-                res.append(rg_letter + rg_number)
-        return res
+
+class Database(metaclass=Singleton):
+    _maps = None
+    _addresses = None
+    _map_codes = None
+    _cities = None
 
     @classmethod
-    def collect_addresses(maps: dict) -> List[str]:
-        res = []
-        for map_codes in maps.values():
-            for mp in map_codes.values():
-                for addr in mp["range"]:
-                    res.append(" ".join(addr))
-        return res
+    def get_maps(cls):
+        if cls._maps:
+            return cls._maps
+        cities = os.listdir(os.path.join(os.path.dirname(__file__), "src"))
+        maps = {}
+        for city in cities:
+            with open(
+                os.path.join(os.path.dirname(__file__), "src", city, "regions.json")
+            ) as f:
+                sheet = json.load(f)
+            maps[city] = {}
+            for region in sheet["valueRanges"]:
+                map_letter = region["range"].split("!")[0].strip("'")[0]
+                maps[city][map_letter] = {}
+                for line in region["values"][1:]:
+                    if str(reduce(lambda a, b: a + b, line, "")).strip() != "":
+                        map_number = line[0][1:]
+                        if map_number not in maps[city][map_letter]:
+                            map_file = os.path.join(
+                                os.path.dirname(__file__),
+                                "src",
+                                city,
+                                "flyers",
+                                f"{map_letter}АО",
+                                f"{map_letter}{map_number}.png",
+                            )
+                            maps[city][map_letter][map_number] = {
+                                "file": map_file,
+                                "range": [],
+                            }
+                        address = (line[1], line[2])
+                        maps[city][map_letter][map_number]["range"].append(address)
+        cls._maps = maps
+        return cls._maps
 
     @classmethod
-    def collect_maps(sheet_file) -> Dict[str, Dict[str, Dict[str, str | List[str]]]]:
-        # sheet = dict()
-        with open(sheet_file) as f:
-            sheet = json.load(f)
-        maps = dict()
-        for region in sheet["valueRanges"]:
-            map_letter = region["range"].split("!")[0].strip("'")[0]
-            maps[map_letter] = dict()
-            for line in region["values"][1:]:
-                if len(line) > 0:
-                    map_number = line[0][1:]
-                    if map_number not in maps[map_letter]:
-                        file = f"{map_letter}{map_number}.png"
-                        folder = os.path.dirname(__file__)
-                        folder += f"/src/flyers/{map_letter}АО/"
-                        map_file = folder + file
-                        maps[map_letter][map_number] = {}
-                        maps[map_letter][map_number]["file"] = map_file
-                        maps[map_letter][map_number]["range"] = []
-                    addr = (line[1], line[2])
-                    maps[map_letter][map_number]["range"].append(addr)
-        return maps
+    def get_addresses(cls):
+        if cls._addresses:
+            return cls._addresses
+        if cls._maps is None:
+            cls.get_maps()
+        res = {}
+        for city, map_letters in cls._maps.items():
+            res[city] = []
+            for map_numbers in map_letters.values():
+                for addresses in map(lambda v: v["range"], map_numbers.values()):
+                    res[city] += list(map(lambda l: (" ".join(l)).lower(), addresses))
+        cls._addresses = res
+        return cls._addresses
 
     @classmethod
-    def find_matches_map(address: str, maps: dict):
-        for reg_letter, map_numbers in maps.items():
+    def get_maps_codes(cls):
+        if cls._map_codes:
+            return cls._map_codes
+        if cls._maps is None:
+            cls.get_maps()
+        res = {}
+        for city, map_letters in cls._maps.items():
+            res[city] = []
+            for map_letter, map_numbers in map_letters.items():
+                res[city] += list(
+                    map(
+                        lambda map_number: f"{map_letter}{map_number}",
+                        map_numbers.keys(),
+                    )
+                )
+
+        cls._map_codes = res
+        return cls._map_codes
+
+    @classmethod
+    def get_cities(cls):
+        if cls._cities:
+            return cls._cities
+        if cls._maps is None:
+            cls.get_maps()
+        cls._cities = list(cls._maps.keys())
+        return cls._cities
+
+    @classmethod
+    def find_matches_map(cls, address: str, city: str):
+        if cls._maps is None:
+            cls.get_maps()
+        for reg_letter, map_numbers in cls._maps[city].items():
             for map_number, mp in map_numbers.items():
-                if address in [" ".join(item) for item in mp["range"]]:
+                if address.lower() in [
+                    (" ".join(item)).lower() for item in mp["range"]
+                ]:
                     return f"{reg_letter}{map_number}"
 
     @classmethod
-    def get_map(mp: str, maps: dict) -> Tuple[str, List[str]]:
-        map_file = maps[mp[0]][mp[1:]]["file"]
-        map_addresses = maps[mp[0]][mp[1:]]["range"]
+    def get_map(cls, mp: str, city: str):
+        if cls._maps is None:
+            cls.get_maps()
+        map_file = cls._maps[city][mp[0]][mp[1:]]["file"]
+        map_addresses = cls._maps[city][mp[0]][mp[1:]]["range"]
         return map_file, map_addresses
 
-
-print(SheetParser.set_file())
-print(SheetParser.get_file())
-print(SheetParser.set_file("jsdjsjd"))
-print(SheetParser.get_file())
-print(SheetParser.get_file())
-s = SheetParser()
-print(s.get_file())
-print(SheetParser.set_file())
-print(SheetParser.get_file())
-# print(SheetParser().get_file())
+    @classmethod
+    def update(cls):
+        cls._maps = None
+        cls._map_codes = None
+        cls._addresses = None
+        cls._cities = None

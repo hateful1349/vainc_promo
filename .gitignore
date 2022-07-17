@@ -135,3 +135,4 @@ configs/
 .idea/
 promo_db.json
 regions.json
+src/

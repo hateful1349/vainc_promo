@@ -1,9 +1,8 @@
 import difflib
 import logging
-import os
-from typing import List
 
 from aiogram import executor as ex
+from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import (
     CallbackQuery,
@@ -12,179 +11,326 @@ from aiogram.types import (
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
 )
 
 from base import bot, dp
+from database import Database as db
 from filters import bind_filters
-from helpers import (
-    collect_addresses,
-    collect_maps,
-    collect_maps_codes,
-    find_matches_map,
-    get_map,
-    read_config,
-)
-from polling import add_new_prom
-from states import BotStates
-from users import Rights
+from helpers import parse_callback_data
 
-config = read_config()
+from states import BotStates
+from users import Rights, Users
 
 logging.basicConfig(level=logging.INFO)
-
-sheet_file = os.path.dirname(__file__) + "/src/regions.json"
-
-map_btn = KeyboardButton(text="🗺️ Карта")
-addr_btn = KeyboardButton(text="🗺️ Адрес")
-
-choose_kb = ReplyKeyboardMarkup(resize_keyboard=True).add(map_btn, addr_btn)
 
 bind_filters()
 
 
-@dp.message_handler(commands=["test"], user_have_rights=Rights.CITY)
-async def city_handler(msg: Message):
-    await msg.answer("У вас есть права CITY")
-
-
-@dp.message_handler(commands=["test"], user_have_rights=[Rights.CITIES, Rights.GET_MAP])
-async def cities_and_getmap_handler(msg: Message):
-    await msg.answer("У вас есть права CITIES GET_MAP")
-
-
 async def woman(msg: Message):
-    await msg.answer("Недостаточно прав для использования данной команды")
+    await msg.answer(
+        "Недостаточно прав для использования данной команды",
+        reply_markup=ReplyKeyboardRemove(),
+    )
 
 
-@dp.message_handler(commands=["firstmap"])
-async def firstmap_message_handler_prom(msg: Message):
+@dp.callback_query_handler(lambda c: parse_callback_data(c.data).get("url") == "MAP")
+@dp.message_handler(state=BotStates.MAP)
+@dp.message_handler(commands=["map"], user_have_rights=Rights.GET_MAP)
+async def give_user_map(msg: Message | CallbackQuery, state: FSMContext = None):
     """
-    Первую карту пытается выдать не админ
+    Отправка карты по встроенной кнопке, команде /map или на текстовый запрос карты
     """
-    await woman(msg)
-
-
-@dp.callback_query_handler(lambda c: c.data == "MAP!")
-@dp.message_handler(commands=["map"], is_admin=True)
-async def give_map_handler(msg: Message | CallbackQuery):
-    """
-    Отправка карты по встроенной кнопке или команде /map
-    """
+    city = None
+    required_maps = None
+    if state:
+        async with state.proxy() as data:
+            city = data.get("city")
     if isinstance(msg, CallbackQuery):
-        args = msg["message"]["reply_markup"]["inline_keyboard"][0][0]["text"]
         await bot.answer_callback_query(msg.id)
-    elif msg.get_args() is not None:
-        args = msg.get_args()
+        # city = list(filter(lambda c: "CITY" in c, callback_args))[0].split("=")[1]
+        city = parse_callback_data(msg.data).get("CITY")
+        # required_maps = (list(filter(lambda c: "MAPS" in c, callback_args))[0].split("=")[1].split())
+        required_maps = parse_callback_data(msg.data).get("MAPS").split()
     else:
-        args = msg["text"]
-    for arg in filter(lambda arg: arg in maps_codes, map(str.upper, args.split())):
-        map_file, map_addresses = get_map(arg, maps)
-        compiled_addresses = "\n".join(
-            list(map(lambda address: " ".join(address), map_addresses))
-        )
-        with open(map_file, "rb") as map_pic:
-            if len(compiled_addresses) > 1024:
-                await bot.send_photo(msg.from_user.id, map_pic)
-                await bot.send_message(msg.from_user.id, compiled_addresses)
+        args = (
+            msg.get_args()
+        )  # возвращает пустую строку если команда /map без аргументов и None если сообщение пришло из другого места программы в тупо тестовом формате, без /map в формате "К1-1 К2-2"
+        if args == "":
+            await msg.answer("Нельзя просто так вызывать пустую команду")
+        elif args is None:
+            required_maps = msg["text"].split()
+        else:
+            args = args.split()
+            user_cities = Users.get_user_cities(msg.from_user.id)
+            if len(user_cities) > 1:
+                if args[0] not in db.get_cities():
+                    await msg.answer(
+                        "Какой вам нужен город?",
+                        reply_markup=InlineKeyboardMarkup().add(
+                            *list(
+                                map(
+                                    lambda city: InlineKeyboardButton(
+                                        city,
+                                        # callback_data=f"CITY={city}&MAPS={' '.join(args)}",
+                                        callback_data=f"MAP&CITY={city}&MAPS={' '.join(args)}",
+                                    ),
+                                    user_cities,
+                                )
+                            )
+                        ),
+                    )
+                else:
+                    city = args[0]
+                    required_maps = args[1:]
             else:
-                await bot.send_photo(msg.from_user.id, map_pic, compiled_addresses)
+                city = user_cities[0]
+                required_maps = args
 
+    if city and required_maps:
+        if city not in db.get_cities():
+            await bot.send_message(
+                msg.from_user.id, f'У меня пока нет данных по городу "{city}"'
+            )
+            await dp.current_state(user=msg.from_user.id).reset_state()
+            return
+        for required_map in map(str.upper, required_maps):
+            if required_map not in db.get_maps_codes().get(city):
+                await bot.send_message(
+                    msg.from_user.id, f"Я не знаю карты {required_map}"
+                )
+                continue
+            map_file, map_addresses = db.get_map(required_map, city)
+            compiled_addresses = "\n".join(
+                list(map(lambda address: " ".join(address), map_addresses))
+            )
+            with open(map_file, "rb") as map_pic:
+                if len(compiled_addresses) > 1024:
+                    await bot.send_photo(msg.from_user.id, map_pic)
+                    await bot.send_message(msg.from_user.id, compiled_addresses)
+                else:
+                    await bot.send_photo(msg.from_user.id, map_pic, compiled_addresses)
 
-@dp.message_handler(commands=["map"])
-async def give_map_handler_prom(msg: Message):
-    """
-    Пром пытается сам себе выдать карту
-    """
-    await woman(msg)
-
-
-@dp.message_handler(state=BotStates.all()[1])
-async def give_map_simple(msg: Message):
-    """
-    Обработка запроса на карту
-    """
     await dp.current_state(user=msg.from_user.id).reset_state()
-    await give_map_handler(msg)
 
 
-@dp.message_handler(state=BotStates.all()[2])
-async def give_map_by_address_simple(msg: Message):
+@dp.message_handler(state=BotStates.ADDRESS)
+async def give_map_by_address(msg: Message, state: FSMContext = None):
     """
     Обработка запроса на адрес
     """
-    await dp.current_state(user=msg.from_user.id).reset_state()
-    await msg.answer(f'Пытаюсь найти по адресу "{msg["text"]}"')
-    closest_addresses: List[str] = difflib.get_close_matches(
-        msg["text"], addresses, n=5
+    city = None
+    if state:
+        async with state.proxy() as data:
+            city = data.get("city")
+    closest_addresses = difflib.get_close_matches(
+        msg.text.lower(),
+        map(str.lower, db.get_addresses().get(city)),
+        n=5,
     )
     if len(closest_addresses) == 0:
         await msg.answer("Кажется я не знаю такого адреса")
+        await dp.current_state(user=msg.from_user.id).reset_state()
         return
-    for closest_addr in closest_addresses:
-        match_map = find_matches_map(closest_addr, maps)
-        answer = f"{closest_addr}: {match_map}"
+    if msg.text.lower() in closest_addresses:
+        closest_addresses = [msg.text.lower()]
+    for closest_address in closest_addresses:
+        match_map = db.find_matches_map(closest_address, city)
         await msg.answer(
-            answer,
+            closest_address,
             reply_markup=InlineKeyboardMarkup().add(
-                InlineKeyboardButton(match_map, callback_data=f"MAP!")
+                InlineKeyboardButton(
+                    match_map, callback_data=f"MAP&CITY={city}&MAPS={match_map}"
+                )
             ),
         )
-        if closest_addr.lower() == msg["text"].lower():
-            break
+
+    await dp.current_state(user=msg.from_user.id).reset_state()
 
 
-@dp.message_handler(Text(equals="🗺️ Карта"), is_admin=True)
-async def give_map_message_parser(msg: Message):
+@dp.callback_query_handler(lambda c: "QUERY_CITY_MAP" in c.data)
+@dp.message_handler(
+    Text(equals=Rights.comments.get(Rights.GET_MAP)), user_have_rights=Rights.GET_MAP
+)
+async def give_map_message_parser(
+    msg: Message | CallbackQuery, state: FSMContext = None
+):
     """
     Ловушка для кнопки с картами
     """
-    await dp.current_state(user=msg.from_user.id).set_state(BotStates.all()[1])
-    await msg.answer("Выберите карту, а я попытаюсь её найти")
+    city = None
+    if isinstance(msg, Message):
+        user_cities = Users.get_user_cities(msg.from_user.id)
+        if user_cities is None:
+            await msg.answer(
+                "⚠️ У вас не задан город. Обратитесь к вышестоящему лицу за подробностями"
+            )
+        elif len(user_cities) > 1:
+            await msg.answer(
+                "Какой вам нужен город?",
+                reply_markup=InlineKeyboardMarkup().add(
+                    *list(
+                        map(
+                            lambda city: InlineKeyboardButton(
+                                city,
+                                callback_data=f"QUERY_CITY_MAP={city}",
+                            ),
+                            user_cities,
+                        )
+                    )
+                ),
+            )
+        else:
+            city = user_cities[0]
+    elif isinstance(msg, CallbackQuery):
+        await bot.answer_callback_query(msg.id)
+        city = msg.data.split("=")[-1]
+    if city:
+        async with state.proxy() as data:
+            data["city"] = city
+        await BotStates.MAP.set()
+        await bot.send_message(msg.from_user.id, "Какую карту ищем?")
 
 
-@dp.message_handler(Text(equals="🗺️ Адрес"), is_admin=True)
-async def handle_address(msg: Message):
+@dp.callback_query_handler(lambda c: "QUERY_CITY_ADDRESS" in c.data)
+@dp.message_handler(
+    Text(equals=Rights.comments.get(Rights.GET_ADDRESS)),
+    user_have_rights=Rights.GET_ADDRESS,
+)
+async def handle_address(msg: Message | CallbackQuery, state: FSMContext = None):
     """
     Ловушка для кнопки с адресами
     """
-    await dp.current_state(user=msg.from_user.id).set_state(BotStates.all()[2])
-    await msg.answer("Какой адрес ищем?")
+    city = None
+    if isinstance(msg, Message):
+        user_cities = Users.get_user_cities(msg.from_user.id)
+        if user_cities is None:
+            await msg.answer(
+                "⚠️ У вас не задан город. Обратитесь к вышестоящему лицу за подробностями"
+            )
+        elif len(user_cities) > 1:
+            await msg.answer(
+                "Какой вам нужен город?",
+                reply_markup=InlineKeyboardMarkup().add(
+                    *list(
+                        map(
+                            lambda city: InlineKeyboardButton(
+                                city,
+                                callback_data=f"QUERY_CITY_ADDRESS={city}",
+                            ),
+                            user_cities,
+                        )
+                    )
+                ),
+            )
+        else:
+            city = user_cities[0]
+    elif isinstance(msg, CallbackQuery):
+        await bot.answer_callback_query(msg.id)
+        city = msg.data.split("=")[-1]
+    if city:
+        async with state.proxy() as data:
+            data["city"] = city
+        await BotStates.ADDRESS.set()
+        await bot.send_message(msg.from_user.id, "Какой адрес интересует?")
 
 
-@dp.message_handler(commands=["start"], is_admin=True)
+@dp.callback_query_handler(lambda c: parse_callback_data(c.data).get("url") == "RIGHTS")
+@dp.message_handler(
+    Text(equals=Rights.comments.get(Rights.CHANGE_USER_PERMISSIONS)),
+    user_have_rights=[Rights.CHANGE_USER_PERMISSIONS],
+)
+async def test(msg: Message | CallbackQuery):
+    menu = (
+        "START"
+        if isinstance(msg, Message)
+        else parse_callback_data(msg.data).get("MENU") or "START"
+    )
+    print("CURRENT_MENU:", menu)
+    chosen_user = None
+    if isinstance(msg, CallbackQuery):
+        fields = parse_callback_data(msg.data)
+        if menu == "USER_MENU":
+            chosen_user = fields.get("USER")
+    users = Users.get_users()
+    user_managers = Users.get_management(msg.from_user.id)
+    menus = {
+        "START": {
+            "text": "Кого покараем/наградим?",
+            "buttons": list(
+                map(
+                    lambda user: InlineKeyboardButton(
+                        users[user]["username"] or users[user]["name"] or user,
+                        callback_data=f"RIGHTS&MENU=USER_MENU&USER={user}",
+                    ),
+                    filter(
+                        lambda user: user
+                        not in user_managers
+                        | {
+                            str(msg.from_user.id),
+                        },
+                        list(users.keys()),
+                    ),
+                )
+            ),
+        },
+        "USER_MENU": {
+            "text": Users.get_information(chosen_user) if chosen_user else "",
+            "buttons": [
+                KeyboardButton(
+                    "🏙️ Город",
+                    callback_data=f"RIGHTS&MENU=CHANGE_CITY&USER={chosen_user}",
+                ),
+                KeyboardButton(
+                    "🔑 Права",
+                    callback_data=f"RIGHTS&MENU=CHANGE_RIGHTS&USER={chosen_user}",
+                ),
+                KeyboardButton(
+                    "💾 Данные",
+                    callback_data=f"RIGHTS&MENU=CHANGE_DATA&USER={chosen_user}",
+                ),
+                KeyboardButton(
+                    "💾 Начальство",
+                    callback_data=f"RIGHTS&MENU=CHANGE_MANAGERS&USER={chosen_user}",
+                ),
+                KeyboardButton("🔙 Назад", callback_data="RIGHTS"),
+            ],
+        },
+    }
+
+    if isinstance(msg, Message):
+        await msg.answer(
+            menus.get(menu).get("text"),
+            reply_markup=InlineKeyboardMarkup(row_width=2).add(
+                *menus.get(menu).get("buttons")
+            ),
+        )
+    else:
+        await bot.answer_callback_query(msg.id)
+        await bot.edit_message_text(
+            chat_id=msg.message.chat.id,
+            message_id=msg.message.message_id,
+            text=menus.get(menu).get("text"),
+            reply_markup=InlineKeyboardMarkup(row_width=2).add(
+                *menus.get(menu).get("buttons")
+            ),
+        )
+
+
+@dp.message_handler(commands=["start"])
 async def start_handler(msg: Message):
     """
     Стартовое сообщение, показывающее кнопки
     """
-    await msg.reply("Приветствую", reply_markup=choose_kb)
+    await handle_text(msg)
 
 
-@dp.message_handler(commands=["help"], is_admin=True)
+@dp.message_handler(commands=["help"])
 async def help_admin(msg: Message):
     """
     Админ не знает как что работает
     """
-    await msg.answer(
-        "/map для выдачи случайной карты\n"
-        "/map К1-1 для выдачи карты К1-1\n"
-        "/map К1-1 К1-2 ... для выдачи сразу нескольких карт\n"
-        "/firstmap для выдачи необходимых файлов, "
-        "регистрации промоутера, выдачи его "
-        "первой карты в соответствии с его адресом\n"
-        "/end для записи в базу информации по пройденной карте\n"
-        "/help для вывода данной справки\n"
-    )
-
-
-@dp.message_handler(commands=["help"])
-async def help_prom(msg: Message):
-    """
-    Пром не знает как пользоваться
-    """
-    await msg.answer(
-        "для вас пока что не предусмотрено какого-то особого "
-        "функционала, но можете попробовать команду /end"
-    )
+    await handle_text(msg)
 
 
 @dp.message_handler()
@@ -192,10 +338,19 @@ async def handle_text(msg: Message):
     """
     Обработка всех возможных сообщений
     """
-    await msg.answer("Возможно вы сейчас пытаетесь получить какой-то адрес или карту")
-    await msg.answer(
-        "Теперь это работает только по кнопкам ниже", reply_markup=choose_kb
-    )
+    lines = Users.get_user_actions(msg.from_user.id)
+    if len(lines) == 0:
+        await msg.answer(
+            f"Вы не можете использовать данного бота\nЕсли вы считаете, что это ошибка, то обратитесь к главным администраторам {' '.join(Users.get_main_admins())}",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+    else:
+        choose_kb = ReplyKeyboardMarkup(resize_keyboard=True)
+        choose_kb.add(*list(map(lambda l: KeyboardButton(l), lines)))
+        await msg.answer(
+            "Все возможные для вас действия можно сделать по кнопкам ниже",
+            reply_markup=choose_kb,
+        )
 
 
 def main() -> None:
@@ -204,34 +359,12 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    maps = collect_maps(sheet_file)
-    addresses = collect_addresses(maps)
-    maps_codes = collect_maps_codes(maps)
     main()
 
-# TODO: возможность отправления карты прому
-# TODO: фиксация отчетов
-# TODO: получение и выгрузка данных в бд
 
-# firstmap
-# реализация:
-#   отправляет промоутеру инструкцию, наши листовку
-#   а также первую карту с его домом или максимально близкую к нему
-#   добавляет эту карту в буфер тестовых
-#   фиксирует прома его карту и выдачу 300 листовок в базу
-# права:
-#   админ
-
-# end
-#   завершение карты по факту
-#   фиксирует дату завершения карты
-#   считает количество разложенного материала для расчета зарплаты
-#   сравнивает время выдачи карты с текущим для бонуса за проезд
-
-# givemap
-# выдает самую близкую к дому свободную карту
-#
-# только для админа
-
-# givemap О1-4
-# выдаст карту О1-4
+# TODO: допилить изменение прав пользователей
+# TODO: разные меню
+# TODO: подменю
+# TODO: пролистываение пунктов меню
+# TODO: запрет на изменение прав конкретных пользователей, либо вышестоящего руководства
+# TODO: запрет на изменение своих прав

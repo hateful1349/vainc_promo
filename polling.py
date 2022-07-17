@@ -64,7 +64,7 @@ async def get_prom_phone(msg: Message):
 async def get_prom_address(msg: Message):
     set_address(msg.from_user.id, msg.text)
     set_chat_id(msg.from_user.id, msg.chat.id)
-    await bot.send_message(msg.chat.id, f"Спасибо")
+    await bot.send_message(msg.chat.id, "Спасибо")
     await bot.send_message(
         msg.chat.id,
         f"{get_lname(msg.from_user.id).capitalize()} {get_fname(msg.from_user.id).capitalize()}\n{get_address(msg.from_user.id)}\n{get_phone(msg.from_user.id)}\n",

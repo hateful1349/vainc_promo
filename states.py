@@ -1,15 +1,17 @@
-from aiogram.utils.helper import Helper, HelperMode, ListItem
+from aiogram.dispatcher.filters.state import State, StatesGroup
 
 
-class BotStates(Helper):
-    mode = HelperMode.snake_case
+class BotStates(StatesGroup):
+    DEFAULT = State()
+    MAP = State()
+    ADDRESS = State()
 
-    DEFAULT = ListItem()
-    MAP = ListItem()
-    ADDRESS = ListItem()
+    NEW_PROM_FNAME = State()
+    NEW_PROM_LNAME = State()
+    NEW_PROM_ADDRESS = State()
+    NEW_PROM_PHONE_NUMBER = State()
+    NEW_PROM_PHONE_PAYMENTS = State()
 
-    NEW_PROM_FNAME = ListItem()
-    NEW_PROM_LNAME = ListItem()
-    NEW_PROM_ADDRESS = ListItem()
-    NEW_PROM_PHONE_NUMBER = ListItem()
-    NEW_PROM_PHONE_PAYMENTS = ListItem()
+    CITY = State()
+
+    CITY_FOR_MAPS = State()
