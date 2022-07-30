@@ -1,10 +1,10 @@
 import json
 import os
 from typing import Dict
-from database import Database as db
 
+from tools.database import Database as db
 from helpers import read_config
-from specials import Singleton
+from models.singleton import Singleton
 
 
 class Rights:
@@ -19,7 +19,7 @@ class Rights:
         # "CITY": "Город",
         "GET_MAP": "🗺️ Карта",
         "GET_ADDRESS": "🗺️ Адрес",
-        "CITY_MANAGEMENT": "Изменение городов",
+        "CITY_MANAGEMENT": "🏢 Изменение городов",
         # "CITIES": "Города",
         "CHANGE_USER_PERMISSIONS": "🔐 Права пользователей",
     }
@@ -86,7 +86,7 @@ class Users(metaclass=Singleton):
         if cities is None or not list(filter(lambda city: city != "", cities)):
             return None
         if cities == "ANY":
-            cities = db.get_cities()
+            cities = list(map(lambda city: city.name, db.get_cities()))
         return cities
 
     @classmethod
@@ -109,7 +109,7 @@ class Users(metaclass=Singleton):
         if cls.get_user(user_id).get("post"):
             res += f"\nДолжность: {cls.get_user(user_id).get('post')}"
         if cls.get_user_cities(user_id):
-            if cls.get_user_cities(user_id) == db.get_cities():
+            if cls.get_user_cities(user_id) == list(map(lambda city: city.name, db.get_cities())):
                 res += "\nГород: любой"
             else:
                 res += f"\nГорода: {' '.join(cls.get_user_cities(user_id))}"

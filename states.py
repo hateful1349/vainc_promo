@@ -15,3 +15,4 @@ class BotStates(StatesGroup):
     CITY = State()
 
     CITY_FOR_MAPS = State()
+    WAIT_FOR_CITY_RESOURCES = State()

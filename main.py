@@ -1,5 +1,6 @@
 import difflib
 import logging
+from typing import Union
 
 from aiogram import executor as ex
 from aiogram.dispatcher import FSMContext
@@ -12,10 +13,11 @@ from aiogram.types import (
     Message,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
+    Document
 )
 
 from base import bot, dp
-from database import Database as db
+from tools.database import Database as db
 from filters import bind_filters
 from helpers import parse_callback_data
 
@@ -37,7 +39,7 @@ async def woman(msg: Message):
 @dp.callback_query_handler(lambda c: parse_callback_data(c.data).get("url") == "MAP")
 @dp.message_handler(state=BotStates.MAP)
 @dp.message_handler(commands=["map"], user_have_rights=Rights.GET_MAP)
-async def give_user_map(msg: Message | CallbackQuery, state: FSMContext = None):
+async def give_user_map(msg: Union[Message, CallbackQuery], state: FSMContext = None):
     """
     Отправка карты по встроенной кнопке, команде /map или на текстовый запрос карты
     """
@@ -64,7 +66,9 @@ async def give_user_map(msg: Message | CallbackQuery, state: FSMContext = None):
             args = args.split()
             user_cities = Users.get_user_cities(msg.from_user.id)
             if len(user_cities) > 1:
-                if args[0] not in db.get_cities():
+                if args[0] not in list(
+                    map(lambda city: city.name.lower(), db.get_cities())
+                ):
                     await msg.answer(
                         "Какой вам нужен город?",
                         reply_markup=InlineKeyboardMarkup().add(
@@ -88,28 +92,36 @@ async def give_user_map(msg: Message | CallbackQuery, state: FSMContext = None):
                 required_maps = args
 
     if city and required_maps:
-        if city not in db.get_cities():
+        if city.lower() not in list(
+            map(lambda city: city.name.lower(), db.get_cities())
+        ):
             await bot.send_message(
                 msg.from_user.id, f'У меня пока нет данных по городу "{city}"'
             )
             await dp.current_state(user=msg.from_user.id).reset_state()
             return
         for required_map in map(str.upper, required_maps):
-            if required_map not in db.get_maps_codes().get(city):
+            mp = db.get_map(required_map, city)
+            if not mp:
                 await bot.send_message(
                     msg.from_user.id, f"Я не знаю карты {required_map}"
                 )
                 continue
-            map_file, map_addresses = db.get_map(required_map, city)
             compiled_addresses = "\n".join(
-                list(map(lambda address: " ".join(address), map_addresses))
+                [f"Карта: {mp.name}"]
+                + list(
+                    map(
+                        lambda address: " ".join([address.street, address.number]),
+                        mp.addresses,
+                    )
+                )
             )
-            with open(map_file, "rb") as map_pic:
-                if len(compiled_addresses) > 1024:
-                    await bot.send_photo(msg.from_user.id, map_pic)
-                    await bot.send_message(msg.from_user.id, compiled_addresses)
-                else:
-                    await bot.send_photo(msg.from_user.id, map_pic, compiled_addresses)
+            # with open(map_file, "rb") as map_pic:
+            if len(compiled_addresses) > 1024:
+                await bot.send_photo(msg.from_user.id, mp.picture)
+                await bot.send_message(msg.from_user.id, compiled_addresses)
+            else:
+                await bot.send_photo(msg.from_user.id, mp.picture, compiled_addresses)
 
     await dp.current_state(user=msg.from_user.id).reset_state()
 
@@ -125,7 +137,15 @@ async def give_map_by_address(msg: Message, state: FSMContext = None):
             city = data.get("city")
     closest_addresses = difflib.get_close_matches(
         msg.text.lower(),
-        map(str.lower, db.get_addresses().get(city)),
+        map(
+            str.lower,
+            list(
+                map(
+                    lambda address: f"{address.street} {address.number}",
+                    db.get_addresses(city),
+                )
+            ),
+        ),
         n=5,
     )
     if len(closest_addresses) == 0:
@@ -135,7 +155,9 @@ async def give_map_by_address(msg: Message, state: FSMContext = None):
     if msg.text.lower() in closest_addresses:
         closest_addresses = [msg.text.lower()]
     for closest_address in closest_addresses:
-        match_map = db.find_matches_map(closest_address, city)
+        match_map = db.get_matches_map(
+            (closest_address.rsplit(" ")[0], closest_address.rsplit(" ")[1]), city
+        ).name
         await msg.answer(
             closest_address,
             reply_markup=InlineKeyboardMarkup().add(
@@ -316,6 +338,32 @@ async def test(msg: Message | CallbackQuery):
             ),
         )
 
+
+@dp.message_handler(state=BotStates.WAIT_FOR_CITY_RESOURCES, content_types=["document"])
+async def get_city_resources(msg: Document, state: FSMContext = None):
+    file_id = msg.document.file_id
+    file = await bot.get_file(file_id)
+    file_path = file.file_path
+    await msg.answer(f"file_path: {file_path}")
+    async with state.proxy() as data:
+        if files := data.get("files"):
+            if len(files) < 2:
+                files.append(file_path)
+            if len(files) == 2:
+                await msg.answer(f"files: {files}")
+                await dp.current_state(user=msg.from_user.id).reset_state()
+        else:
+            data["files"] = [file_path]
+    async with state.proxy() as data:
+        print(data.get("files"))
+
+
+@dp.message_handler(Text(equals=Rights.comments.get(Rights.CITY_MANAGEMENT)),
+    user_have_rights=[Rights.CITY_MANAGEMENT])
+async def change_city(msg: Message):
+    await msg.answer("Тут ща будет добавление нового города")
+    await msg.answer("Отправь мне в одном сообщении zip архив с картами и xlsx таблицу с адресами")
+    await BotStates.WAIT_FOR_CITY_RESOURCES.set()
 
 @dp.message_handler(commands=["start"])
 async def start_handler(msg: Message):
