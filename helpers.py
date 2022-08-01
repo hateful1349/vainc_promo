@@ -1,13 +1,3 @@
-import configparser
-import os
-
-
-def read_config():
-    config = configparser.ConfigParser()
-    config.read(f"{os.path.dirname(__file__)}/configs/config.ini")
-    return config
-
-
 def parse_callback_data(data):
     """
     Parse callback data into a dictionary.

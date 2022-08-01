@@ -39,7 +39,7 @@ class Map(Base):
     name = Column(String)
     picture = Column(LargeBinary)
     region_id = Column(Integer, ForeignKey("region.region_id"))
-    addresses = relationship("Address", backref="map")
+    addresses = relationship("Address", backref="map", lazy="subquery")
 
     def __init__(self, name, picture_bytes, region_id):
         self.name = name

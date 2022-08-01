@@ -13,12 +13,13 @@ from aiogram.types import (
     Message,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
-    Document
+    Document,
 )
+import sqlalchemy
 
 from base import bot, dp
-from tools.database import Database as db
-from filters import bind_filters
+from database.database import Database as db
+from filters import ImprovedUserFilter
 from helpers import parse_callback_data
 
 from states import BotStates
@@ -26,7 +27,7 @@ from users import Rights, Users
 
 logging.basicConfig(level=logging.INFO)
 
-bind_filters()
+dp.filters_factory.bind(ImprovedUserFilter)
 
 
 async def woman(msg: Message):
@@ -101,7 +102,12 @@ async def give_user_map(msg: Union[Message, CallbackQuery], state: FSMContext = 
             await dp.current_state(user=msg.from_user.id).reset_state()
             return
         for required_map in map(str.upper, required_maps):
-            mp = db.get_map(required_map, city)
+            mp = None
+            try:
+                mp = db.get_map(required_map, city)
+            except sqlalchemy.exc.OperationalError as e:
+                await bot.send_message(msg.from_user.id, f"Я от вас жду сносное название карты, а не {required_map}")
+
             if not mp:
                 await bot.send_message(
                     msg.from_user.id, f"Я не знаю карты {required_map}"
@@ -358,12 +364,17 @@ async def get_city_resources(msg: Document, state: FSMContext = None):
         print(data.get("files"))
 
 
-@dp.message_handler(Text(equals=Rights.comments.get(Rights.CITY_MANAGEMENT)),
-    user_have_rights=[Rights.CITY_MANAGEMENT])
+@dp.message_handler(
+    Text(equals=Rights.comments.get(Rights.CITY_MANAGEMENT)),
+    user_have_rights=[Rights.CITY_MANAGEMENT],
+)
 async def change_city(msg: Message):
     await msg.answer("Тут ща будет добавление нового города")
-    await msg.answer("Отправь мне в одном сообщении zip архив с картами и xlsx таблицу с адресами")
+    await msg.answer(
+        "Отправь мне в одном сообщении zip архив с картами и xlsx таблицу с адресами"
+    )
     await BotStates.WAIT_FOR_CITY_RESOURCES.set()
+
 
 @dp.message_handler(commands=["start"])
 async def start_handler(msg: Message):
@@ -389,7 +400,7 @@ async def handle_text(msg: Message):
     lines = Users.get_user_actions(msg.from_user.id)
     if len(lines) == 0:
         await msg.answer(
-            f"Вы не можете использовать данного бота\nЕсли вы считаете, что это ошибка, то обратитесь к главным администраторам {' '.join(Users.get_main_admins())}",
+            f"Вы не можете использовать данного бота\nЕсли вы считаете, что это ошибка, то обратитесь к вышестоящему лицу за подробностями",
             reply_markup=ReplyKeyboardRemove(),
         )
     else:

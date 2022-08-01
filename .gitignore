@@ -136,3 +136,5 @@ configs/
 promo_db.json
 regions.json
 src/
+test.py
+data/users.json

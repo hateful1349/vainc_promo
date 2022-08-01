@@ -3,7 +3,6 @@ from typing import List, Union
 from aiogram.dispatcher.filters.filters import BoundFilter
 from aiogram.types import Message
 
-from base import dp
 from users import Users
 
 
@@ -17,7 +16,3 @@ class ImprovedUserFilter(BoundFilter):
 
     async def check(self, msg: Message):
         return set(self.user_have_rights) <= Users.get_user_rights(msg.from_user.id)
-
-
-def bind_filters():
-    dp.filters_factory.bind(ImprovedUserFilter)

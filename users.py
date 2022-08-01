@@ -2,25 +2,21 @@ import json
 import os
 from typing import Dict
 
-from tools.database import Database as db
-from helpers import read_config
-from models.singleton import Singleton
+from data import config
+from database.database import Database as db
+from specials.singleton import Singleton
 
 
 class Rights:
-    # CITY = "CITY"
     GET_MAP = "GET_MAP"
     GET_ADDRESS = "GET_ADDRESS"
     CITY_MANAGEMENT = "CITY_MANAGEMENT"
-    # CITIES = "CITIES"
     CHANGE_USER_PERMISSIONS = "CHANGE_USER_PERMISSIONS"
 
     comments = {
-        # "CITY": "Город",
         "GET_MAP": "🗺️ Карта",
         "GET_ADDRESS": "🗺️ Адрес",
         "CITY_MANAGEMENT": "🏢 Изменение городов",
-        # "CITIES": "Города",
         "CHANGE_USER_PERMISSIONS": "🔐 Права пользователей",
     }
 
@@ -28,14 +24,13 @@ class Rights:
 class Users(metaclass=Singleton):
     @classmethod
     def get_users(cls) -> dict:
-        config = dict(read_config())
         with open(
-            os.path.dirname(__file__)
-            + "/configs"
-            + dict(config).get("USERS").get("users_file")
+            os.path.join(
+                os.path.dirname(__file__),
+                config.USERS_DB_FILE,
+            )
         ) as f:
             users: Dict[str : Dict[str, str | None]] = json.load(f)
-        # users[None] = None
         return users
 
     @classmethod
@@ -49,14 +44,6 @@ class Users(metaclass=Singleton):
                 list(users.keys())[:3],
             )
         )
-
-    @classmethod
-    def get_admins(cls) -> set:
-        config = dict(read_config())
-        admins = config.get("TG").get("admins")
-        if admins is None or admins.strip() == "":
-            return set()
-        return set(admins.split())
 
     @classmethod
     def get_user(cls, user_id):
@@ -109,7 +96,9 @@ class Users(metaclass=Singleton):
         if cls.get_user(user_id).get("post"):
             res += f"\nДолжность: {cls.get_user(user_id).get('post')}"
         if cls.get_user_cities(user_id):
-            if cls.get_user_cities(user_id) == list(map(lambda city: city.name, db.get_cities())):
+            if cls.get_user_cities(user_id) == list(
+                map(lambda city: city.name, db.get_cities())
+            ):
                 res += "\nГород: любой"
             else:
                 res += f"\nГорода: {' '.join(cls.get_user_cities(user_id))}"
@@ -130,7 +119,6 @@ class Users(metaclass=Singleton):
 
 
 # легенда
-# CITY право на доступ к данным того или иного города
 # GET_MAP право на получение карты по её номеру
 #     требует права доступа CITY
 # GET_ADDRESS право на получение карт по адресу
@@ -138,8 +126,4 @@ class Users(metaclass=Singleton):
 #     если отработает и надо получить карту, то требуются права уровня GET_MAP
 # CITY_MANAGEMENT право на управление городами
 #     позволяет удалять, создавать, назначать админов и их права для того или иного города
-# CITIES костыль для правильной работы сотрудников затрагивающих больше одного города
-#     требует к себе прав GET_MAP или GET_ADDRESS
-#     при использовании дает выбор для получения карты или адреса по тому или иному городу
-#     МОЖЕТ ВЫЗВАТЬ ОШИБКУ ПРИ ИСПОЛЬЗОВАНИИ ВМЕСТЕ С ПРАВАМИ CITY!!!
 # CHANGE_USER_PERMISSIONS изменение прав других пользователей
