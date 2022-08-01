@@ -181,7 +181,7 @@ async def give_map_by_address(msg: Message, state: FSMContext = None):
     Text(equals=Rights.comments.get(Rights.GET_MAP)), user_have_rights=Rights.GET_MAP
 )
 async def give_map_message_parser(
-    msg: Message | CallbackQuery, state: FSMContext = None
+    msg: Union[Message, CallbackQuery], state: FSMContext = None
 ):
     """
     Ловушка для кнопки с картами
@@ -225,7 +225,7 @@ async def give_map_message_parser(
     Text(equals=Rights.comments.get(Rights.GET_ADDRESS)),
     user_have_rights=Rights.GET_ADDRESS,
 )
-async def handle_address(msg: Message | CallbackQuery, state: FSMContext = None):
+async def handle_address(msg: Union[Message, CallbackQuery], state: FSMContext = None):
     """
     Ловушка для кнопки с адресами
     """
@@ -268,7 +268,7 @@ async def handle_address(msg: Message | CallbackQuery, state: FSMContext = None)
     Text(equals=Rights.comments.get(Rights.CHANGE_USER_PERMISSIONS)),
     user_have_rights=[Rights.CHANGE_USER_PERMISSIONS],
 )
-async def test(msg: Message | CallbackQuery):
+async def test(msg: Union[Message, CallbackQuery]):
     menu = (
         "START"
         if isinstance(msg, Message)
