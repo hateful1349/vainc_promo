@@ -10,7 +10,7 @@ from specials.singleton import Singleton
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from .models import Address, City, Map, Region
+from .models import Address, Base, City, Map, Region
 
 
 @contextmanager
@@ -33,42 +33,95 @@ def db_session(engine, mode="r"):
 
 
 class Database(metaclass=Singleton):
-    _engine = None
+    """
+    A database object that can be used as a context manager
+    """
 
     @classmethod
     def init_engine(cls, engine=None, echo=False) -> bool:
         """
         Initializes the database engine
         """
-        if cls._engine is None:
-            if engine is None or engine in ["sql"]:
-                cls._engine = create_engine(
-                    f"mysql+pymysql://{config.DB_USER}:{config.DB_PASSWORD}@{config.DB_HOST}/{config.DB_NAME}",
-                    pool_pre_ping=True,
-                    pool_recycle=300,
-                    echo=echo,
-                )
-            elif engine in ["sqlite"]:
-                cls._engine = create_engine("sqlite:///data/base.db", echo=True)
-        return cls._engine
+        engine = engine.lower() if engine else "sqlite"
+        if engine in ["sql"]:
+            return create_engine(
+                f"mysql+pymysql://{config.DB_USER}:{config.DB_PASSWORD}@{config.DB_HOST}/{config.DB_NAME}",
+                pool_pre_ping=True,
+                pool_recycle=300,
+                echo=echo,
+            )
+
+        if engine in ["sqlite"]:
+            return create_engine(f"sqlite:///{config.SQLITE_DB}", echo=echo)
+
+        return None
 
     @classmethod
-    def get_map(cls, map_name: str, city: str) -> Union[Map, None]:
+    def write_mysql_to_sqlite(cls):
+        with db_session(cls.init_engine("sql")) as s:
+            cities = s.query(City).all()
+            regions = s.query(Region).all()
+            maps = s.query(Map).all()
+            addresses = s.query(Address).all()
+
+        sqlite_eng = cls.init_engine("sqlite")
+        Base.metadata.create_all(
+            sqlite_eng,
+            tables=[City.__table__, Region.__table__, Map.__table__, Address.__table__],
+        )
+
+        with db_session(sqlite_eng, "w") as s:
+            for city in cities:
+                s.add(City(name=city.name.lower()))
+            for region in regions:
+                s.add(Region(region.name.lower(), region.city_id))
+            for mp in maps:
+                s.add(Map(mp.name.lower(), mp.picture, mp.region_id))
+            for address in addresses:
+                s.add(
+                    Address(
+                        address.street.lower(),
+                        address.number.lower(),
+                        address.floors,
+                        address.entrances,
+                        address.flats,
+                        address.map_id,
+                        address.mailboxes,
+                        address.comment,
+                    )
+                )
+
+    @classmethod
+    def get_map(
+        cls, city: str, map_name: str = None, map_id: int = None
+    ) -> Union[Map, None]:
         """
         Gets a map from a given city
         :param map_name: The name of the map
         :param city: The name of the city
         :return: The corresponding map object or None if no map is available
         """
+        if not map_name and not map_id:
+            return None
         with db_session(cls.init_engine()) as session:
-            return (
-                session.query(Map)
-                .join(Region, Map.region_id == Region.region_id)
-                .join(City, Region.city_id == City.city_id)
-                .filter(City.name.like(city))
-                .filter(Map.name.like(map_name))
-                .first()
-            )
+            if map_name:
+                return (
+                    session.query(Map)
+                    .join(Region, Map.region_id == Region.region_id)
+                    .join(City, Region.city_id == City.city_id)
+                    .filter(City.name.like(city.lower()))
+                    .filter(Map.name.like(map_name.lower()))
+                    .first()
+                )
+            else:
+                return (
+                    session.query(Map)
+                    .join(Region, Map.region_id == Region.region_id)
+                    .join(City, Region.city_id == City.city_id)
+                    .filter(City.name.like(city.lower()))
+                    .filter(Map.map_id.like(map_id))
+                    .first()
+                )
 
     @classmethod
     def get_cities(cls) -> Union[list[City], None]:
@@ -90,7 +143,7 @@ class Database(metaclass=Singleton):
             return (
                 session.query(Region)
                 .join(City, City.city_id == Region.city_id)
-                .filter(City.name.like(city_name))
+                .filter(City.name.like(city_name.lower()))
                 .all()
             )
 
@@ -110,7 +163,7 @@ class Database(metaclass=Singleton):
                     .join(Map, Address.map_id == Map.map_id)
                     .join(Region, Region.region_id == Map.region_id)
                     .join(City, City.city_id == Region.city_id)
-                    .filter(City.name.like(city))
+                    .filter(City.name.like(city.lower()))
                     .all()
                 )
 
@@ -130,7 +183,7 @@ class Database(metaclass=Singleton):
                     session.query(Map)
                     .join(Region, Region.region_id == Map.region_id)
                     .join(City, City.city_id == Region.city_id)
-                    .filter(City.name.like(city))
+                    .filter(City.name.like(city.lower()))
                     .all()
                 )
             else:
@@ -138,8 +191,8 @@ class Database(metaclass=Singleton):
                     session.query(Map)
                     .join(Region, Region.region_id == Map.region_id)
                     .join(City, City.city_id == Region.city_id)
-                    .filter(City.name.like(city))
-                    .filter(Region.name.like(region))
+                    .filter(City.name.like(city.lower()))
+                    .filter(Region.name.like(region.lower()))
                     .all()
                 )
 
@@ -157,9 +210,9 @@ class Database(metaclass=Singleton):
                 .join(Map, Map.map_id == Address.map_id)
                 .join(Region, Region.region_id == Map.region_id)
                 .join(City, City.city_id == Region.city_id)
-                .filter(City.name.like(city))
-                .filter(Address.street.like(address[0]))
-                .filter(Address.number.like(address[1]))
+                .filter(City.name.like(city.lower()))
+                .filter(Address.street.like(address[0].lower()))
+                .filter(Address.number.like(address[1].lower()))
                 .first()
                 .map
             )
@@ -172,6 +225,7 @@ class Database(metaclass=Singleton):
         :param xlsx_filepath: The path to the xlsx file
         :param city_name: The name of the city to extract
         """
+
         def unpack_zip(
             filepath, city_name
         ) -> Dict[str, Dict[str, Dict[str, Dict[str, Union[bytes, list]]]]]:

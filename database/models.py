@@ -77,7 +77,6 @@ class Address(Base):
     mailboxes = Column(Integer, nullable=True)
     comment = Column(String, nullable=True)
     map_id = Column(Integer, ForeignKey("map.map_id"))
-    map2 = relationship("Map", backref="address", lazy="subquery")
 
     def __init__(
         self,

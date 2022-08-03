@@ -5,13 +5,13 @@ import sqlalchemy
 from aiogram import types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
+from aiogram.utils import markdown
 from database.database import Database as db
 from keyboards.inline.keyboards import get_map_menu
 from loader import bot, dp
 from states.states import BotStates
 from utils.callback import parse_callback_data
 from utils.users import Rights, Users
-from aiogram.utils import markdown
 
 
 @dp.callback_query_handler(lambda c: parse_callback_data(c.data).get("url") == "MAP")
@@ -51,7 +51,7 @@ async def give_user_map(
                         *list(
                             map(
                                 lambda city: types.InlineKeyboardButton(
-                                    city,
+                                    city.title(),
                                     callback_data=f"MAP&CITY={city}&MAPS={' '.join(args)}",
                                 ),
                                 user_cities,
@@ -62,15 +62,6 @@ async def give_user_map(
                 else:
                     city = args[0]
                     required_maps = args[1:]
-            # return (
-            #     session.query(Map)
-            #     .join(Region, Region.region_id == Map.region_id)
-            #     .join(City, City.region_id == Region.region_id)
-            #     .join(Address, Address.map_id == Map.map_id)
-            #     .filter(City.name.like(city))
-            #     .filter(Address.street.like(address[0]))
-            #     .filter(Address.number.like(address[1])).first()
-            # )
             else:
                 city = user_cities[0]
                 required_maps = args
@@ -87,7 +78,7 @@ async def give_user_map(
         for required_map in map(str.upper, required_maps):
             mp = None
             try:
-                mp = db.get_map(required_map, city)
+                mp = db.get_map(city, required_map)
             except sqlalchemy.exc.OperationalError as e:
                 await bot.send_message(
                     msg.from_user.id,
@@ -100,15 +91,19 @@ async def give_user_map(
                 )
                 continue
             compiled_addresses = "\n".join(
-                [markdown.bold(f"Карта: {mp.name}")]
+                [markdown.bold(f"Карта: {mp.name.upper()}")]
                 + list(
                     map(
-                        lambda address: " ".join([address.street, address.number]),
+                        lambda address: " ".join(
+                            [address.street.capitalize(), address.number]
+                        ),
                         mp.addresses,
                     )
                 )
             )
-            if len(compiled_addresses) > 1024: # если размер описания к фото слишком большой, то отправить два отдельных сообщения
+            if (
+                len(compiled_addresses) > 1024
+            ):  # если размер описания к фото слишком большой, то отправить два отдельных сообщения
                 await bot.send_photo(msg.from_user.id, mp.picture)
                 await bot.send_message(msg.from_user.id, compiled_addresses)
             else:
@@ -150,9 +145,10 @@ async def give_map_by_address(msg: types.Message, state: FSMContext = None):
         )
     )
     for closest_address in closest_addresses:
+        mp = db.get_map(city, map_id=closest_address.map_id)
         await msg.answer(
-            f"{closest_address.street} {closest_address.number}",
-            reply_markup=get_map_menu(city, closest_address.map2.name),
+            f"{closest_address.street.capitalize()} {closest_address.number}",
+            reply_markup=get_map_menu(city, mp.name.upper()),
         )
     await dp.current_state(user=msg.from_user.id).reset_state()
 
@@ -180,7 +176,7 @@ async def give_map_message_parser(
                 *list(
                     map(
                         lambda city: types.InlineKeyboardButton(
-                            city,
+                            city.title(),
                             callback_data=f"QUERY_CITY_MAP={city}",
                         ),
                         user_cities,
@@ -223,7 +219,7 @@ async def handle_address(
                 *list(
                     map(
                         lambda city: types.InlineKeyboardButton(
-                            city,
+                            city.title(),
                             callback_data=f"QUERY_CITY_ADDRESS={city}",
                         ),
                         user_cities,

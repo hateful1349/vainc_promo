@@ -37,6 +37,7 @@ class Users(metaclass=Singleton):
     """
     This class contains all of the user-related methods.
     """
+
     @classmethod
     def get_users(cls) -> dict:
         with open(
@@ -47,7 +48,6 @@ class Users(metaclass=Singleton):
         ) as f:
             users: Dict[str : Dict[str, str | None]] = json.load(f)
         return users
-
 
     @classmethod
     def get_user(cls, user_id):
