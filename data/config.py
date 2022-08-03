@@ -12,4 +12,3 @@ with env.prefixed("DB_"):
     DB_USER = env.str("USER")
     DB_PASSWORD = env.str("PASSWORD")
     DB_NAME = env.str("NAME")
-

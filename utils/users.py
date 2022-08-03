@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from typing import Dict
 
 from data import config
@@ -8,6 +9,17 @@ from specials.singleton import Singleton
 
 
 class Rights:
+    """
+    A class to represent a user's rights.
+
+    GET_MAP право на получение карты по её номеру
+    GET_ADDRESS право на получение карт по адресу
+        если отработает и надо получить карту, то требуются права уровня GET_MAP
+    CITY_MANAGEMENT право на управление городами
+        позволяет удалять, создавать, назначать админов и их права для того или иного города
+    CHANGE_USER_PERMISSIONS изменение прав других пользователей
+    """
+
     GET_MAP = "GET_MAP"
     GET_ADDRESS = "GET_ADDRESS"
     CITY_MANAGEMENT = "CITY_MANAGEMENT"
@@ -22,36 +34,34 @@ class Rights:
 
 
 class Users(metaclass=Singleton):
+    """
+    This class contains all of the user-related methods.
+    """
     @classmethod
     def get_users(cls) -> dict:
         with open(
             os.path.join(
-                os.path.dirname(__file__),
+                Path(os.path.dirname(__file__)).parent,
                 config.USERS_DB_FILE,
             )
         ) as f:
             users: Dict[str : Dict[str, str | None]] = json.load(f)
         return users
 
-    @classmethod
-    def get_main_admins(cls):
-        users = cls.get_users()
-        return list(
-            map(
-                lambda user_id: f"@{users.get(user_id).get('username')}"
-                if users.get(user_id).get("username") not in [None, ""]
-                else f"id{user_id}",
-                list(users.keys())[:3],
-            )
-        )
 
     @classmethod
     def get_user(cls, user_id):
+        """
+        Get a single user by id.
+        """
         user_id = str(user_id)
         return cls.get_users().get(user_id)
 
     @classmethod
     def get_user_rights(cls, user_id) -> set:
+        """
+        Get a set of user's rights.
+        """
         user = cls.get_user(user_id)
         if user is None:
             return set()
@@ -61,11 +71,17 @@ class Users(metaclass=Singleton):
 
     @classmethod
     def get_user_actions(cls, user_id):
+        """
+        Get a set of user's actions.
+        """
         user_rights = cls.get_user_rights(user_id)
         return list(map(lambda r: Rights.comments.get(r), user_rights))
 
     @classmethod
     def get_user_cities(cls, user_id):
+        """
+        Get a list of user's cities.
+        """
         user = cls.get_user(user_id)
         if user is None:
             return None
@@ -78,6 +94,9 @@ class Users(metaclass=Singleton):
 
     @classmethod
     def get_management(cls, user_id):
+        """
+        Get user managers.
+        """
         user = cls.get_user(user_id)
         if user.get("managers") is None:
             return None
@@ -88,6 +107,9 @@ class Users(metaclass=Singleton):
 
     @classmethod
     def get_information(cls, user_id):
+        """
+        Get information about a user.
+        """
         res = f"id{user_id}"
         if cls.get_user(user_id).get("username"):
             res += f"\n@{cls.get_user(user_id).get('username')}"
@@ -116,14 +138,3 @@ class Users(metaclass=Singleton):
             )
             res += f"\nРуководство: {' '.join(managers)}"
         return res
-
-
-# легенда
-# GET_MAP право на получение карты по её номеру
-#     требует права доступа CITY
-# GET_ADDRESS право на получение карт по адресу
-#     требует права доступа CITY
-#     если отработает и надо получить карту, то требуются права уровня GET_MAP
-# CITY_MANAGEMENT право на управление городами
-#     позволяет удалять, создавать, назначать админов и их права для того или иного города
-# CHANGE_USER_PERMISSIONS изменение прав других пользователей

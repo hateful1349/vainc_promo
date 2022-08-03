@@ -3,10 +3,13 @@ from typing import List, Union
 from aiogram.dispatcher.filters.filters import BoundFilter
 from aiogram.types import Message
 
-from users import Users
+from utils.users import Users
 
 
-class ImprovedUserFilter(BoundFilter):
+class UserStatusFilter(BoundFilter):
+    """
+    Filter users by their status.
+    """
     key = "user_have_rights"
 
     def __init__(self, user_have_rights: Union[str, List[str]]):

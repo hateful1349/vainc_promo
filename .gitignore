@@ -128,13 +128,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Secret information
-creds/
-configs/
+# IDE specials
 .vscode/
 .idea/
-promo_db.json
-regions.json
-src/
+
+# Custom
 test.py
 data/users.json

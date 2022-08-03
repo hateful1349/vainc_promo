@@ -1,7 +1,7 @@
-from contextlib import contextmanager
 import datetime
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Dict, Tuple, Union
 from zipfile import ZipFile
 
 from data import config
@@ -10,18 +10,16 @@ from specials.singleton import Singleton
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from database.models.models import Address, City, Map, Region
-# from database.models.city import City
-# from database.models.region import Region
-# from database.models.map import Map
-# from database.models.address import Address
+from .models import Address, City, Map, Region
 
 
 @contextmanager
 def db_session(engine, mode="r"):
-    # modes
-    # r - only read from database
-    # w - only write to database
+    """
+    Generates a session for the given engine
+    :param engine: the engine to use
+    :param mode: the mode to use ('w' to commit the query on the exit, 'r' to only read from database)
+    """
     session = sessionmaker(bind=engine)()
     try:
         yield session
@@ -38,22 +36,31 @@ class Database(metaclass=Singleton):
     _engine = None
 
     @classmethod
-    def init_session(cls, engine=None, echo=False) -> bool:
+    def init_engine(cls, engine=None, echo=False) -> bool:
+        """
+        Initializes the database engine
+        """
         if cls._engine is None:
             if engine is None or engine in ["sql"]:
                 cls._engine = create_engine(
                     f"mysql+pymysql://{config.DB_USER}:{config.DB_PASSWORD}@{config.DB_HOST}/{config.DB_NAME}",
+                    pool_pre_ping=True,
+                    pool_recycle=300,
                     echo=echo,
                 )
             elif engine in ["sqlite"]:
                 cls._engine = create_engine("sqlite:///data/base.db", echo=True)
-            # return sessionmaker(bind=engine)()
         return cls._engine
-        # return bool(cls._engine)
 
     @classmethod
     def get_map(cls, map_name: str, city: str) -> Union[Map, None]:
-        with db_session(cls.init_session()) as session:
+        """
+        Gets a map from a given city
+        :param map_name: The name of the map
+        :param city: The name of the city
+        :return: The corresponding map object or None if no map is available
+        """
+        with db_session(cls.init_engine()) as session:
             return (
                 session.query(Map)
                 .join(Region, Map.region_id == Region.region_id)
@@ -65,12 +72,36 @@ class Database(metaclass=Singleton):
 
     @classmethod
     def get_cities(cls) -> Union[list[City], None]:
-        with db_session(cls.init_session()) as session:
+        """
+        Gets a list of cities
+        :return: The list of cities or None if no cities were found
+        """
+        with db_session(cls.init_engine()) as session:
             return session.query(City).all()
 
     @classmethod
+    def get_regions(cls, city_name) -> Union[list[Region], None]:
+        """
+        Gets a list of regions
+        :param city_name: The name of the city
+        :return: The list of regions or None if no regions were found
+        """
+        with db_session(cls.init_engine()) as session:
+            return (
+                session.query(Region)
+                .join(City, City.city_id == Region.city_id)
+                .filter(City.name.like(city_name))
+                .all()
+            )
+
+    @classmethod
     def get_addresses(cls, city=None) -> Union[list[Address], None]:
-        with db_session(cls.init_session()) as session:
+        """
+        Gets a list of addresses
+        :param city: The name of the city
+        :return: The list of addresses or None if no addresses were found
+        """
+        with db_session(cls.init_engine()) as session:
             if city is None:
                 return session.query(Address).all()
             else:
@@ -84,21 +115,43 @@ class Database(metaclass=Singleton):
                 )
 
     @classmethod
-    def get_maps(cls, city: str = None) -> Union[list[Map], None]:
-        with db_session(cls.init_session()) as session:
+    def get_maps(cls, city: str = None, region: str = None) -> Union[list[Map], None]:
+        """
+        Gets a list of maps
+        :param city: The name of the city
+        :param region: The name of the region
+        :return: The list of maps or None if no maps were found
+        """
+        with db_session(cls.init_engine()) as session:
             if city is None:
                 return session.query(Map).all()
-            return (
-                session.query(Map)
-                .join(Region, Map.region_id == Region.region_id)
-                .join(City, Region.city_id == City.city_id)
-                .filter(City.name.like(city))
-                .all()
-            )
+            elif not region:
+                return (
+                    session.query(Map)
+                    .join(Region, Region.region_id == Map.region_id)
+                    .join(City, City.city_id == Region.city_id)
+                    .filter(City.name.like(city))
+                    .all()
+                )
+            else:
+                return (
+                    session.query(Map)
+                    .join(Region, Region.region_id == Map.region_id)
+                    .join(City, City.city_id == Region.city_id)
+                    .filter(City.name.like(city))
+                    .filter(Region.name.like(region))
+                    .all()
+                )
 
     @classmethod
     def get_matches_map(cls, address: Tuple[str, str], city) -> Union[Map, None]:
-        with db_session(cls.init_session()) as session:
+        """
+        Gets the matches map for a given address and city
+        :param address: The address
+        :param city: The city
+        :return: The map or None if no matches
+        """
+        with db_session(cls.init_engine()) as session:
             return (
                 session.query(Address)
                 .join(Map, Map.map_id == Address.map_id)
@@ -113,7 +166,21 @@ class Database(metaclass=Singleton):
 
     @classmethod
     def _collect_maps_zip_xlsx(cls, zip_filepath, xlsx_filepath, city_name):
-        def unpack_zip(filepath, city_name):
+        """
+        Collects all the maps from a zip file and extracts them
+        :param zip_filepath: The path to the zip file
+        :param xlsx_filepath: The path to the xlsx file
+        :param city_name: The name of the city to extract
+        """
+        def unpack_zip(
+            filepath, city_name
+        ) -> Dict[str, Dict[str, Dict[str, Dict[str, Union[bytes, list]]]]]:
+            """
+            Unpacks the zip file into a dictionary
+            :param filepath: The path to the zip file
+            :param city_name: The name of the city to extract
+            :return: A dictionary containing the extracted data
+            """
             maps = {city_name: {}}
             with ZipFile(filepath) as archive:
                 for file in filter(
@@ -124,7 +191,6 @@ class Database(metaclass=Singleton):
                         maps[city_name][region] = {}
                     maps[city_name][region][Path(file).stem] = {
                         "picture": archive.read(file),
-                        # "picture": "FUCKING BYTES",
                         "addresses": [],
                     }
             return maps
@@ -170,7 +236,13 @@ class Database(metaclass=Singleton):
 
     @classmethod
     def create_city(cls, city, zip_filepath, xlsx_filepath):
-        with db_session(cls.init_session()) as session:
+        """
+        Create a new city file with the given data.
+        :param city: The city to create
+        :param zip_filepath: The path to the zip file
+        :param xlsx_filepath: The path to the xlsx file
+        """
+        with db_session(cls.init_engine(), mode="w") as session:
             maps = cls._collect_maps_zip_xlsx(zip_filepath, xlsx_filepath, city)
 
             for city, city_regions in maps.items():
@@ -190,7 +262,7 @@ class Database(metaclass=Singleton):
                                 session.query(Region)
                                 .filter_by(
                                     name=city_region,
-                                    city_id=cls._session.query(City)
+                                    city_id=session.query(City)
                                     .filter_by(name=city)
                                     .first()
                                     .city_id,
@@ -210,10 +282,10 @@ class Database(metaclass=Singleton):
                                     session.query(Map)
                                     .filter_by(
                                         name=region_map_number,
-                                        region_id=cls._session.query(Region)
+                                        region_id=session.query(Region)
                                         .filter_by(
                                             name=city_region,
-                                            city_id=cls._session.query(City)
+                                            city_id=session.query(City)
                                             .filter_by(name=city)
                                             .first()
                                             .city_id,
@@ -229,10 +301,3 @@ class Database(metaclass=Singleton):
                             )
 
         # cls._session.commit()
-
-
-# Database.create_city(
-#     "Нижний Тагил",
-#     "/home/god/Documents/bdsm/bdsm_promo/tools/Карты.zip",
-#     "/home/god/Documents/bdsm/bdsm_promo/tools/База Нижний Тагил.xlsx",
-# )
