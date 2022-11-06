@@ -1,0 +1,25 @@
+BOT_TOKEN=000000000:00000000000000000000000000000000000
+
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=password
+DB_NAME=sql_base
+
+# sqlite/sql/psql
+# sqlite for locale database
+# sql - MariaDB server (NEED MARIADB INSTALLED)
+# psql - PostgreSQL server (NEED POSTGRES INSTALLED)
+DB_TYPE=psql
+
+# CRITICAL
+# FATAL
+# ERROR
+# WARN
+# WARNING
+# INFO
+# DEBUG
+# NOTSET
+# ! no matter lower or uppper register
+LOGLEVEL=info
+
+ADDRESS_SEARCH_COUNT=5

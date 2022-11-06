@@ -1,17 +1,17 @@
 import logging
-from aiogram.utils.exceptions import (
-    Unauthorized,
-    InvalidQueryID,
-    TelegramAPIError,
-    CantDemoteChatCreator,
-    MessageNotModified,
-    MessageToDeleteNotFound,
-    MessageTextIsEmpty,
-    RetryAfter,
-    CantParseEntities,
-    MessageCantBeDeleted,
-)
 
+from aiogram.utils.exceptions import (
+    CantDemoteChatCreator,
+    CantParseEntities,
+    InvalidQueryID,
+    MessageCantBeDeleted,
+    MessageNotModified,
+    MessageTextIsEmpty,
+    MessageToDeleteNotFound,
+    RetryAfter,
+    TelegramAPIError,
+    Unauthorized,
+)
 
 from loader import dp
 
@@ -20,7 +20,7 @@ from loader import dp
 async def errors_handler(update, exception):
     """
     Exceptions handler. Catches all exceptions within task factory tasks.
-    :param dispatcher:
+
     :param update:
     :param exception:
     :return: stdout logging
