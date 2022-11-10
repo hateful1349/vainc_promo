@@ -106,7 +106,7 @@ class Users(metaclass=Singleton):
             user.surname = surname or user.surname
 
     @classmethod
-    def get_cities(cls, tg_id):
+    def get_cities(cls, tg_id) -> list[City]:
         with db_session() as session:
             return (
                 session.query(City)

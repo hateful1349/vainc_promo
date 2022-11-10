@@ -38,7 +38,7 @@ async def map_handler(msg: types.Message, state: FSMContext):
                         lambda region: types.InlineKeyboardButton(
                             region.name, callback_data=f"reg={region.name}"
                         ),
-                        regions,
+                        sorted(regions, key=lambda reg: reg.name),
                     )
                 )
             )
@@ -55,7 +55,7 @@ async def map_handler(msg: types.Message, state: FSMContext):
                             city.name,
                             callback_data=f"{city.name}",
                         ),
-                        user_cities,
+                        sorted(user_cities, key=lambda c: c.name),
                     )
                 )
             )
@@ -67,7 +67,7 @@ async def map_handler(msg: types.Message, state: FSMContext):
                     "msg_id": new_msg.message_id,
                 }
 
-
+# TODO убрать нахер этот костыль и сделать нормальную регистрацию хендлеров
 @dp.message_handler(
     Text(equals=Rights.comments.get(Rights.GET_ADDRESS)),
     user_have_rights=Rights.GET_ADDRESS,
@@ -98,7 +98,7 @@ async def address_handler(msg: types.Message, state: FSMContext):
                             c.name,
                             callback_data=f"{c.name}",
                         ),
-                        user_cities,
+                        sorted(user_cities, key=lambda c: c.name),
                     )
                 )
             )
@@ -109,6 +109,50 @@ async def address_handler(msg: types.Message, state: FSMContext):
                     "chat_id": msg.chat.id,
                     "msg_id": new_msg.message_id,
                 }
+
+
+# TODO убрать нахер этот костыль и сделать нормальную регистрацию хендлеров
+@dp.message_handler(
+    Text(equals=Rights.comments.get(Rights.CHANGE_USER_PERMISSIONS)),
+    user_have_rights=Rights.CHANGE_USER_PERMISSIONS,
+    state="*"
+)
+async def main_menu_handler(msg: types.Message, state: FSMContext):
+    # user = Users.get_user(msg.from_user.id)
+
+    kb = types.InlineKeyboardMarkup().add(
+        *list(
+            map(
+                lambda u: types.InlineKeyboardButton(
+                    Users.get_readable_name(u),
+                    callback_data=f"user_menu&{u.tg_id}",
+                ),
+                sorted(Users.get_slaves(msg.from_user.id), key=lambda u: u.id)
+            )
+        )
+         + [types.InlineKeyboardButton("➕ Новый юзер", callback_data="new_user")]
+    )
+    await msg.answer("Кого покараем/наградим?", reply_markup=kb)
+    await BotStates.USER_RIGHTS.set()
+
+
+# TODO убрать нахер этот костыль и сделать нормальную регистрацию хендлеров
+@dp.message_handler(
+    Text(equals=Rights.comments.get(Rights.CITY_MANAGEMENT)),
+    user_have_rights=Rights.CITY_MANAGEMENT,
+    state="*"
+)
+async def city_management_handler(msg: types.Message, state: FSMContext):
+    kb = types.InlineKeyboardMarkup(row_width=1).add(
+        *[
+            types.KeyboardButton("Новый", callback_data="new_city"),
+            types.KeyboardButton("Изменить", callback_data="edit_city"),
+            types.KeyboardButton("Удалить", callback_data="remove_city"),
+        ]
+    )
+
+    await msg.answer("Что именно вы хотите сделать с городами?", reply_markup=kb)
+    await BotStates.FILES.set()
 
 
 @dp.message_handler(state=BotStates.WAIT_FOR_MAP)
@@ -147,7 +191,7 @@ async def wait_for_city_handler(msg: types.Message, state: FSMContext):
                 lambda region: types.InlineKeyboardButton(
                     region.name, callback_data=f"reg={region.name}"
                 ),
-                regions,
+                sorted(regions, key=lambda reg: reg.name),
             )
         )
     )
@@ -178,7 +222,7 @@ async def wait_for_city_callback(callback: types.CallbackQuery, state: FSMContex
                 lambda region: types.InlineKeyboardButton(
                     region.name, callback_data=f"reg={region.name}"
                 ),
-                regions,
+                sorted(regions, key=lambda reg: reg.name),
             )
         )
     )

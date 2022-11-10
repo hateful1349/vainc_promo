@@ -15,24 +15,24 @@ from states.states import BotStates
 from utils.helpers import join_file_parts
 
 
-@dp.message_handler(
-    Text(equals=Rights.comments.get(Rights.CITY_MANAGEMENT)),
-    user_have_rights=Rights.CITY_MANAGEMENT,
-    state="*"
-)
-async def city_management_handler(msg: types.Message):
-    kb = types.InlineKeyboardMarkup(row_width=1).add(
-        *[
-            types.KeyboardButton("Новый", callback_data="new_city"),
-            types.KeyboardButton("Изменить", callback_data="edit_city"),
-            types.KeyboardButton("Удалить", callback_data="remove_city"),
-        ]
-    )
+# @dp.message_handler(
+#     Text(equals=Rights.comments.get(Rights.CITY_MANAGEMENT)),
+#     user_have_rights=Rights.CITY_MANAGEMENT,
+#     state="*"
+# )
+# async def city_management_handler(msg: types.Message):
+#     kb = types.InlineKeyboardMarkup(row_width=1).add(
+#         *[
+#             types.KeyboardButton("Новый", callback_data="new_city"),
+#             types.KeyboardButton("Изменить", callback_data="edit_city"),
+#             types.KeyboardButton("Удалить", callback_data="remove_city"),
+#         ]
+#     )
+#
+#     await msg.answer("Что именно вы хотите сделать с городами?", reply_markup=kb)
 
-    await msg.answer("Что именно вы хотите сделать с городами?", reply_markup=kb)
 
-
-@dp.callback_query_handler(lambda callback: callback.data == "new_city")
+@dp.callback_query_handler(lambda callback: callback.data == "new_city", state=BotStates.FILES)
 async def new_city_callback(callback: types.CallbackQuery):
     with contextlib.suppress(FileNotFoundError):
         shutil.rmtree(f"{os.curdir}/.cache")
@@ -247,7 +247,7 @@ async def zip_part_end_handler(msg: types.Message, state: FSMContext):
     await dp.current_state(user=msg.from_user.id).reset_state()
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "remove_city")
+@dp.callback_query_handler(lambda callback: callback.data == "remove_city", state=BotStates.FILES)
 async def remove_city_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -272,7 +272,7 @@ async def remove_city_callback(callback: types.CallbackQuery, state: FSMContext)
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data.startswith("remove_city"))
+@dp.callback_query_handler(lambda callback: callback.data.startswith("remove_city"), state=BotStates.FILES)
 async def remove_city_arg_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
