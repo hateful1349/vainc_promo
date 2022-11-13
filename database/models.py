@@ -108,9 +108,9 @@ class Address(Base):
             floors,
             entrances,
             flats,
-            map_id,
-            mailboxes=None,
-            comment=None,
+            mailboxes,
+            comment,
+            map_id
     ):
         self.street = street
         self.number = number

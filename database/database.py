@@ -6,6 +6,7 @@ from openpyxl import load_workbook
 from sqlalchemy import func
 
 from specials.singleton import Singleton
+
 from .base import db_session
 from .models import Address, City, Map, Region
 
@@ -35,7 +36,11 @@ class Database(metaclass=Singleton):
             raise Exception
         with db_session() as session:
             if city_name:
-                return session.query(City).filter(City.name.ilike(city_name)).first()
+                return (
+                    session.query(City)
+                    .filter(City.name.ilike(city_name))
+                    .first()
+                )
             return session.query(City).filter(City.id == city_id).first()
 
     @classmethod
@@ -96,10 +101,16 @@ class Database(metaclass=Singleton):
         :return: The list of regions or None if no regions were found
         """
         with db_session() as session:
-            return session.query(Region).join(City, City.id == Region.city_id).filter(City.name.ilike(city_name)).all()
+            return (
+                session.query(Region)
+                .join(City, City.id == Region.city_id)
+                .filter(City.name.ilike(city_name))
+                .all()
+            )
 
     @classmethod
-    def get_addresses(cls, city_name=None, map_name=None, map_id=None) -> list[Address]:
+    def get_addresses(cls, city_name=None, map_name=None, map_id=None)\
+            -> list[Address]:
         # sourcery skip: de-morgan
         """
         Gets a list of addresses
@@ -231,6 +242,9 @@ class Database(metaclass=Singleton):
                     }
             return maps
 
+        import locale
+        locale.setlocale(locale.LC_ALL, ('ru_RU', 'UTF-8'))
+
         maps = unpack_zip(zip_filepath, city_name)
         excel_table = load_workbook(xlsx_filepath)
 
@@ -248,28 +262,91 @@ class Database(metaclass=Singleton):
                         )
                     )
 
-                    for i in range(len(map_addresses.copy())):
-                        try:
-                            map_addresses[i] = [
-                                *map_addresses[i][:5],
-                                map_addresses[i][6],
-                            ]
-                        except IndexError:
-                            map_addresses[i] = [*map_addresses[i][:5], None]
-                        for j in range(len(map_addresses[i])):
-                            if element := map_addresses[i][j]:
-                                if isinstance(element, datetime.datetime):
-                                    map_addresses[i][
-                                        j
-                                    ] = f"{element.day}/{element.month}"
-                                elif isinstance(element, float):
-                                    map_addresses[i][j] = int(element)
-                                if str(element).strip() in "-?":
-                                    map_addresses[i][j] = None
-                                else:
-                                    map_addresses[i][j] = str(map_addresses[i][j])
+                    map_values["addresses"] = []
+                    for map_address in map_addresses:
+                        if isinstance(map_address[0], datetime.datetime):
+                            street: datetime.datetime = map_address[0]
+                            str_street = f"{street.strftime('%d')} {street.strftime('%B').capitalize()}"
+                            if str_street.startswith("0"):
+                                str_street = str_street[1:]
+                        elif isinstance(map_address[0], str):
+                            str_street = map_address[0]
+                        else:
+                            print(map_address)
+                            raise Exception
 
-                    map_values["addresses"] = map_addresses
+                        if isinstance(map_address[1], datetime.datetime):
+                            number: datetime.datetime = map_address[1]
+                            str_number = f"{number.day}/{number.month}"
+                        elif isinstance(map_address[1], str):
+                            str_number = map_address[1]
+                        elif isinstance(map_address[1], float):
+                            str_number = str(int(map_address[1]))
+                        elif map_address[1] is None:
+                            str_number = None
+                        else:
+                            print(map_address, map_name)
+                            raise Exception
+
+                        if isinstance(map_address[2], float):
+                            int_floors = int(map_address[2])
+                        elif isinstance(map_address[2], str):
+                            if map_address[2].strip() == "-":
+                                int_floors = None
+                            elif map_address[2].isdigit():
+                                int_floors = int(map_address[2])
+                            else:
+                                print(map_address, map_name)
+                                raise Exception
+                        elif isinstance(map_address[2], int):
+                            int_floors = map_address[2]
+                        else:
+                            print(map_address, map_name)
+                            raise Exception
+
+                        if isinstance(map_address[3], float):
+                            int_entrances = int(map_address[3])
+                        elif isinstance(map_address[3], str):
+                            if map_address[3].strip() in "-?":
+                                int_entrances = None
+                            elif map_address[3].isdigit():
+                                int_entrances = int(map_address[3])
+                            else:
+                                print(map_address, map_name)
+                                raise Exception
+                        elif isinstance(map_address[3], int):
+                            int_entrances = map_address[3]
+                        else:
+                            print(map_address, map_name)
+                            raise Exception
+
+                        if isinstance(map_address[4], float):
+                            int_flats = int(map_address[4])
+                        elif isinstance(map_address[4], str):
+                            if map_address[4].strip() in "-?":
+                                int_flats = None
+                            elif map_address[4].isdigit():
+                                int_flats = int(map_address[4])
+                            else:
+                                print(map_address, map_name)
+                                raise Exception
+                        elif isinstance(map_address[4], int):
+                            int_flats = map_address[4]
+                        else:
+                            print(map_address, map_name)
+                            raise Exception
+
+                        str_comment = map_address[4]
+
+                        map_values["addresses"].append([
+                            str_street,
+                            str_number,
+                            int_floors,
+                            int_entrances,
+                            int_flats,
+                            None,
+                            str_comment]
+                        )
         return maps
 
     @classmethod
@@ -307,17 +384,7 @@ class Database(metaclass=Singleton):
                         session.flush()
                         session.refresh(map_obj)
                         for address in region_map_vals.get("addresses"):
-                            address_obj = Address(
-                                address[0],
-                                address[1] or None,
-                                int(address[2].split(".")[0]) if address[2] else None,
-                                int(address[3].split(".")[0]) if address[3] else None,
-                                int(address[4].split(".")[0]) if address[4] else None,
-                                map_obj.id,
-                                None,
-                                address[5] or None,
-                            )
-
+                            address_obj = Address(*address, map_obj.id)
                             session.add(address_obj)
                             session.flush()
                             session.refresh(address_obj)

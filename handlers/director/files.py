@@ -9,7 +9,7 @@ from aiogram.types import ContentTypes
 from aiogram.utils import exceptions
 
 from database.database import Database
-from database.users import Rights
+# from database.users import Rights
 from loader import bot, dp
 from states.states import BotStates
 from utils.helpers import join_file_parts
