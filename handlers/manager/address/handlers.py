@@ -19,9 +19,21 @@ async def wait_for_address(msg: types.Message, state: FSMContext):
         await send_map(msg.from_user.id, map_obj=matches_map)
     else:
         addresses = Database.get_addresses(city_name)
-        closest_addresses_names = difflib.get_close_matches(request, list(
-            map(lambda address: (address.street or '') + ' ' + (address.number or ''), addresses)),
-                                                            n=config.address_search_count)
+        closest_addresses_names: list[str] = (
+            difflib.get_close_matches(
+                request,
+                list(
+                    map(
+                        lambda address: (
+                            (address.street or '')
+                            + ' '
+                            + (address.number or '')
+                        ),
+                        addresses
+                    )
+                ),
+                n=config.address_search_count)
+        )
 
         closest_maps = [Database.get_matches_map(address, city_name) for address in closest_addresses_names]
         for address, map_obj in zip(closest_addresses_names, closest_maps):
@@ -39,7 +51,7 @@ async def wait_for_address(msg: types.Message, state: FSMContext):
 async def wait_for_city_handler(msg: types.Message, state: FSMContext):
     request = msg.text
 
-    city = list(set(map(lambda city: city.name, Database.get_cities())) & {request})
+    city = list(set(map(lambda city_obj: city_obj.name, Database.get_cities())) & {request})
     if not city:
         await msg.answer("Я не знаю такого города")
         return

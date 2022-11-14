@@ -116,7 +116,8 @@ async def big_size_zip_callback(callback: types.CallbackQuery, state: FSMContext
         chat_id=callback.message.chat.id,
         text="Telegram API не позволяет мне скачивать файлы размером больше 20МБ, "
              "поэтому вам необходимо разделить ваш архив, "
-             "используя WinRAR для Windows или команду split для Linux (split -b 'размер частей' 'название исходного архива' 'префикс для результирующих частей') (split -b 20M Омск.zip Омск.zip.)",
+             "используя WinRAR для Windows или команду split для Linux (split -b 'размер частей' "
+             "'название исходного архива' 'префикс для результирующих частей') (split -b 20M Омск.zip Омск.zip.)",
     )
     await bot.send_message(
         text="Затем отправьте мне фрагменты вашего разбитого архива",

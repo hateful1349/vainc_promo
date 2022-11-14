@@ -19,5 +19,5 @@ class BotStates(StatesGroup):
     WAIT_FOR_CITY_ZIP = State()
     WAIT_FOR_CITY_BIG_ZIP = State()
 
-    USER_RIGHTS = State() # TODO убрать нахер этот костыль вместе с нормальной регистрацией хендлеров
+    USER_RIGHTS = State()  # TODO убрать нахер этот костыль вместе с нормальной регистрацией хендлеров
     FILES = State()

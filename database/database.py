@@ -109,9 +109,7 @@ class Database(metaclass=Singleton):
             )
 
     @classmethod
-    def get_addresses(cls, city_name=None, map_name=None, map_id=None)\
-            -> list[Address]:
-        # sourcery skip: de-morgan
+    def get_addresses(cls, city_name=None, map_name=None, map_id=None) -> list[Address]:
         """
         Gets a list of addresses
 
@@ -123,7 +121,7 @@ class Database(metaclass=Singleton):
         :type map_id: int
         :return: The list of addresses
         """
-        if not ((city_name and not map_id) or (not city_name and not map_name)):
+        if (not city_name or map_id) and (city_name or map_name):
             print("Search by: empty | city_name | city_name+map_name | map_id")
             raise Exception
 
@@ -149,7 +147,11 @@ class Database(metaclass=Singleton):
                     .filter(City.name.ilike(city_name))
                     .all()
                 )
-            return session.query(Address).filter(Address.map_id == map_id).all()
+            return (
+                session.query(Address)
+                .filter(Address.map_id == map_id)
+                .all()
+            )
 
     @classmethod
     def get_maps(cls, city=None, region=None) -> list[Map]:
@@ -201,7 +203,11 @@ class Database(metaclass=Singleton):
                 .join(Region, Region.id == Map.region_id)
                 .join(City, City.id == Region.city_id)
                 .filter(City.name.ilike(city_name))
-                .filter(func.concat(Address.street, ' ', Address.number).ilike(address))
+                .filter((
+                    func.concat(Address.street, ' ', Address.number)
+                    .ilike(address)
+                    )
+                )
                 .first()
             )
 
@@ -228,19 +234,19 @@ class Database(metaclass=Singleton):
             :type city: str
             :return: A dictionary containing the extracted data
             """
-            maps = {city: {}}
+            maps_struct = {city: {}}
             with ZipFile(filepath) as archive:
                 for file in filter(
                         lambda filename: filename.endswith(".png"), archive.namelist()
                 ):
-                    region = Path(file).parent.name
-                    if region not in maps.get(city):
-                        maps[city][region] = {}
-                    maps[city][region][Path(file).stem] = {
+                    region_name = Path(file).parent.name
+                    if region_name not in maps_struct.get(city):
+                        maps_struct[city][region_name] = {}
+                    maps_struct[city][region_name][Path(file).stem] = {
                         "picture": archive.read(file),
                         "addresses": [],
                     }
-            return maps
+            return maps_struct
 
         import locale
         locale.setlocale(locale.LC_ALL, ('ru_RU', 'UTF-8'))

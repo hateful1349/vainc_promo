@@ -193,7 +193,12 @@ class User(Base):
         self.surname = surname
 
     def __repr__(self) -> str:
-        return f"<User: '{self.tg_id}', '{self.username}', '{self.post}', '{self.name}', '{self.surname}', '{self.superuser}'>"
+        return f"<User: '{self.tg_id}', " \
+               f"'{self.username}', " \
+               f"'{self.post}', " \
+               f"'{self.name}', " \
+               f"'{self.surname}', " \
+               f"'{self.superuser}'>"
 
 
 class Right(Base):

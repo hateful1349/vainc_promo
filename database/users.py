@@ -35,6 +35,17 @@ class Rights:
 
 class Users(metaclass=Singleton):
     @classmethod
+    def first_user(cls, tg_id):
+        Users.new_user(tg_id)
+        Users.toggle_super(tg_id)
+
+        with db_session(mode="w") as session:
+            for right_name in list(Rights.comments.keys()):
+                session.add(Right(right_name))
+
+        Users.add_right(tg_id, Rights.CHANGE_USER_PERMISSIONS)
+
+    @classmethod
     def toggle_super(cls, tg_id):
         with db_session(mode="w") as session:
             user = session.query(User).filter(User.tg_id == str(tg_id)).first()

@@ -1,6 +1,6 @@
 from aiogram import types
 from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.filters import Text
+# from aiogram.dispatcher.filters import Text
 
 from database.database import Database
 from database.users import Rights, Users
@@ -81,10 +81,7 @@ async def new_user_message(msg: types.Message, state: FSMContext):
     await BotStates.USER_RIGHTS.set()
 
 
-
 ####
-
-
 @dp.callback_query_handler(lambda callback: callback.data.startswith("user_menu"), state=BotStates.USER_RIGHTS)
 async def user_menu_callback(callback: types.CallbackQuery, state: FSMContext):
     chosen_user = callback.data.split("&")[1]
@@ -153,7 +150,7 @@ async def user_super_toggle_callback(callback: types.CallbackQuery, state: FSMCo
     )
 
 
-## НАЧАЛЬСТВО
+# НАЧАЛЬСТВО
 
 @dp.callback_query_handler(lambda callback: callback.data == "user_managers", state=BotStates.USER_RIGHTS)
 async def user_rights_callback(callback: types.CallbackQuery, state: FSMContext):
@@ -203,7 +200,7 @@ async def add_right_callback(callback: types.CallbackQuery, state: FSMContext):
                 sorted(not_masters)
             )
         )
-         + [types.KeyboardButton("🔙 Назад", callback_data="user_managers")]
+        + [types.KeyboardButton("🔙 Назад", callback_data="user_managers")]
     )
 
     await bot.edit_message_text(
@@ -241,7 +238,7 @@ async def add_right_arg_callback(callback: types.CallbackQuery, state: FSMContex
                 sorted(not_masters)
             )
         )
-         + [types.KeyboardButton("🔙 Назад", callback_data="user_managers")]
+        + [types.KeyboardButton("🔙 Назад", callback_data="user_managers")]
     )
 
     masters_txt = [Users.get_readable_name(u) for u in user_masters]
@@ -275,11 +272,12 @@ async def del_right_callback(callback: types.CallbackQuery, state: FSMContext):
                 sorted(masters)
             )
         )
-         + [types.KeyboardButton("🔙 Назад", callback_data="user_managers")]
+        + [types.KeyboardButton("🔙 Назад", callback_data="user_managers")]
     )
 
     await bot.edit_message_text(
-        "Кого из начальников уберем у него?\n(Убрать можно только тех, кто не в списке ваших начальников и нельзя убрать вас)",
+        "Кого из начальников уберем у него?\n"
+        "(Убрать можно только тех, кто не в списке ваших начальников и нельзя убрать вас)",
         callback.message.chat.id,
         callback.message.message_id,
         reply_markup=kb,
@@ -312,7 +310,7 @@ async def del_right_arg_callback(callback: types.CallbackQuery, state: FSMContex
                 sorted(masters)
             )
         )
-         + [types.KeyboardButton("🔙 Назад", callback_data="user_managers")]
+        + [types.KeyboardButton("🔙 Назад", callback_data="user_managers")]
     )
 
     masters_txt = [Users.get_readable_name(u) for u in user_masters]
@@ -393,9 +391,7 @@ async def add_city_callback(callback: types.CallbackQuery, state: FSMContext):
                 sorted(set(map(lambda c: c.name, Database.get_cities())) - set(map(lambda c: c.name, user_cities)))
             )
         )
-         + [
-             types.KeyboardButton("🔙 Назад", callback_data="user_cities"),
-         ]
+        + [types.KeyboardButton("🔙 Назад", callback_data="user_cities")]
     )
     await bot.edit_message_text(
         "Какой город ему добавим?",
@@ -427,9 +423,7 @@ async def add_city_arg_callback(callback: types.CallbackQuery, state: FSMContext
                 sorted(set(map(lambda c: c.name, Database.get_cities())) - set(map(lambda c: c.name, user_cities)))
             )
         )
-         + [
-             types.KeyboardButton("🔙 Назад", callback_data="user_cities"),
-         ]
+        + [types.KeyboardButton("🔙 Назад", callback_data="user_cities")]
     )
 
     await bot.edit_message_text(
@@ -550,7 +544,7 @@ async def add_right_callback(callback: types.CallbackQuery, state: FSMContext):
                 sorted(set(Rights.comments.keys()) - set(map(lambda r: r.name, Users.get_user_rights(user_id)))),
             )
         )
-         + [types.KeyboardButton("🔙 Назад", callback_data="user_rights")]
+        + [types.KeyboardButton("🔙 Назад", callback_data="user_rights")]
     )
 
     await bot.edit_message_text(
@@ -581,9 +575,7 @@ async def add_right_arg_callback(callback: types.CallbackQuery, state: FSMContex
                 sorted(set(Rights.comments.keys()) - set(map(lambda r: r.name, Users.get_user_rights(user_id)))),
             )
         )
-         + [
-             types.KeyboardButton("🔙 Назад", callback_data="user_rights"),
-         ]
+        + [types.KeyboardButton("🔙 Назад", callback_data="user_rights")]
     )
 
     await bot.edit_message_text(
@@ -608,7 +600,7 @@ async def del_right_callback(callback: types.CallbackQuery, state: FSMContext):
                 sorted(Users.get_user_rights(user_id), key=lambda r: r.name)
             )
         )
-         + [types.KeyboardButton("🔙 Назад", callback_data="user_rights")]
+        + [types.KeyboardButton("🔙 Назад", callback_data="user_rights")]
     )
 
     await bot.edit_message_text(
@@ -639,9 +631,7 @@ async def del_right_arg_callback(callback: types.CallbackQuery, state: FSMContex
                 sorted(user_rights, key=lambda r: r.name)
             )
         )
-         + [
-             types.KeyboardButton("🔙 Назад", callback_data="user_rights"),
-         ]
+        + [types.KeyboardButton("🔙 Назад", callback_data="user_rights")]
     )
 
     await bot.edit_message_text(

@@ -8,15 +8,15 @@ from loader import dp
 from utils.commands import set_default_commands
 
 
-async def on_startup(dp):
+async def on_startup(dispatcher):
     logging.info("startup setup")
-    await set_default_commands(dp)
+    await set_default_commands(dispatcher)
 
 
-async def shutdown(dp):
+async def shutdown(dispatcher):
     logging.error("shutting down")
-    await dp.storage.close()
-    await dp.storage.wait_closed()
+    await dispatcher.storage.close()
+    await dispatcher.storage.wait_closed()
 
 
 if __name__ == "__main__":

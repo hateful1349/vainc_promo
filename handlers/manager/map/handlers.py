@@ -51,9 +51,9 @@ async def map_handler(msg: types.Message, state: FSMContext):
             kb = types.InlineKeyboardMarkup().add(
                 *list(
                     map(
-                        lambda city: types.InlineKeyboardButton(
-                            city.name,
-                            callback_data=f"{city.name}",
+                        lambda city_obj: types.InlineKeyboardButton(
+                            city_obj.name,
+                            callback_data=f"{city_obj.name}",
                         ),
                         sorted(user_cities, key=lambda c: c.name),
                     )
@@ -66,6 +66,7 @@ async def map_handler(msg: types.Message, state: FSMContext):
                     "chat_id": msg.chat.id,
                     "msg_id": new_msg.message_id,
                 }
+
 
 # TODO убрать нахер этот костыль и сделать нормальную регистрацию хендлеров
 @dp.message_handler(
@@ -130,7 +131,7 @@ async def main_menu_handler(msg: types.Message, state: FSMContext):
                 sorted(Users.get_slaves(msg.from_user.id), key=lambda u: u.id)
             )
         )
-         + [types.InlineKeyboardButton("➕ Новый юзер", callback_data="new_user")]
+        + [types.InlineKeyboardButton("➕ Новый юзер", callback_data="new_user")]
     )
     await msg.answer("Кого покараем/наградим?", reply_markup=kb)
     await BotStates.USER_RIGHTS.set()
@@ -170,7 +171,7 @@ async def wait_for_map_handler(msg: types.Message, state: FSMContext):
 async def wait_for_city_handler(msg: types.Message, state: FSMContext):
     request = msg.text.lower()
 
-    city = list(set(map(lambda city: city.name, Database.get_cities())) & {request})
+    city = list(set(map(lambda city_obj: city_obj.name, Database.get_cities())) & {request})
     if not city:
         await msg.answer("Я не знаю такого города")
         return
