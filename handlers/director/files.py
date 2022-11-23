@@ -9,10 +9,12 @@ from aiogram.types import ContentTypes
 from aiogram.utils import exceptions
 
 from database.database import Database
+from keyboards.inline import simple_kb
 # from database.users import Rights
 from loader import bot, dp
 from states.states import BotStates
 from utils.helpers import join_file_parts
+from utils.messages.messages import Messages
 
 
 # @dp.message_handler(
@@ -39,7 +41,7 @@ async def new_city_callback(callback: types.CallbackQuery):
     await bot.answer_callback_query(callback.id)
 
     await bot.edit_message_text(
-        "Как будет зваться новый город?",
+        Messages.city_new_city_question,
         callback.message.chat.id,
         callback.message.message_id,
     )
@@ -55,9 +57,9 @@ async def wait_city_name_handler(msg: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["city_name"] = city_name
 
-    await msg.answer("Отлично!")
-    await msg.answer(f"Теперь отправьте мне xlsx-файл с данными по городу {city_name}")
-    await msg.answer("Если ошиблись, то можете написать /cancel и повторить заново")
+    await msg.answer(Messages.awesome)
+    await msg.answer(Messages.city_xlsx_send(city_name))
+    await msg.answer(Messages.city_cancel_message)
 
 
 @dp.message_handler(
@@ -84,11 +86,11 @@ async def xlsx_get_handler(msg: types.Message, state: FSMContext):
         await msg.answer("Скачал!")
         await msg.answer(f"Теперь я жду от вас zip-архив с картами для {city_name}")
 
-        kb = types.InlineKeyboardMarkup(row_width=2).add(
-            *[
-                types.KeyboardButton("Да", callback_data="big_size_zip"),
-                types.KeyboardButton("Нет", callback_data="common_zip"),
-            ]
+        kb = simple_kb(
+            {
+                "Да": "big_size_zip",
+                "Нет": "common_zip"
+            }, 2
         )
         await msg.answer("Размер вашего архива больше 20МБ?", reply_markup=kb)
 
@@ -254,15 +256,11 @@ async def remove_city_callback(callback: types.CallbackQuery, state: FSMContext)
 
     cities = Database.get_cities()
 
-    kb = types.InlineKeyboardMarkup(row_width=1).add(
-        *list(
-            map(
-                lambda city: types.KeyboardButton(
-                    city.name.capitalize(), callback_data=f"remove_city&{city.id}"
-                ),
-                cities,
-            )
-        )
+    kb = simple_kb(
+        {
+            city.name: f"remove_city&{city.id}"
+            for city in cities
+        }, 1
     )
 
     await bot.edit_message_text(

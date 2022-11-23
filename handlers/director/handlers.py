@@ -4,8 +4,10 @@ from aiogram.dispatcher import FSMContext
 
 from database.database import Database
 from database.users import Rights, Users
+from keyboards.inline import simple_kb
 from loader import bot, dp
 from states.states import BotStates
+from utils.messages.messages import Messages
 
 
 # @dp.message_handler(
@@ -33,17 +35,25 @@ from states.states import BotStates
 
 @dp.callback_query_handler(lambda callback: callback.data == "main_menu", state=BotStates.USER_RIGHTS)
 async def main_menu_callback(callback: types.CallbackQuery):
-    kb = types.InlineKeyboardMarkup().add(
-        *list(
-            map(
-                lambda u: types.InlineKeyboardButton(
-                    Users.get_readable_name(u),
-                    callback_data=f"user_menu&{u.tg_id}",
-                ),
-                sorted(Users.get_slaves(callback.from_user.id), key=lambda u: u.id)
-            )
-        ) + [types.InlineKeyboardButton("➕ Новый юзер", callback_data="new_user")]
+    # kb = types.InlineKeyboardMarkup().add(
+    #     *list(
+    #         map(
+    #             lambda u: types.InlineKeyboardButton(
+    #                 Users.get_readable_name(u),
+    #                 callback_data=f"user_menu&{u.tg_id}",
+    #             ),
+    #             sorted(Users.get_slaves(callback.from_user.id), key=lambda u: u.id)
+    #         )
+    #     ) + [types.InlineKeyboardButton(Messages.users_new_user_btn, callback_data="new_user")]
+    # )
+
+    kb = simple_kb(
+        {
+            Users.get_readable_name(u): f"user_menu&{u.tg_id}"
+            for u in sorted(Users.get_slaves(callback.from_user.id), key=lambda u: u.id)
+        }
     )
+    kb.add(types.InlineKeyboardButton(Messages.users_new_user_btn, callback_data="new_user"))
 
     await bot.edit_message_text(
         "Кого покараем/наградим?",

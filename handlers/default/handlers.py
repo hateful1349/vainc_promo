@@ -1,8 +1,9 @@
 from aiogram import types
 
 from database.users import Users
-from keyboards.default.keyboards import get_start_keyboard
+from keyboards.reply import default_keyboard
 from loader import dp
+from utils.messages.messages import Messages
 
 
 @dp.message_handler(commands=["start"], state="*")
@@ -20,12 +21,11 @@ async def handle_text(msg: types.Message):
     lines = Users.get_user_actions(msg.from_user.id)
     if len(lines) == 0:
         await msg.answer(
-            f"Вы не можете использовать данного бота\n"
-            f"Если вы считаете, что это ошибка, то обратитесь к вышестоящему лицу за подробностями",
+            Messages.default_message_null,
             reply_markup=types.ReplyKeyboardRemove(),
         )
     else:
         await msg.answer(
-            "Все возможные для вас действия можно сделать по кнопкам ниже",
-            reply_markup=get_start_keyboard(lines),
+            Messages.default_message_rights,
+            reply_markup=default_keyboard(lines),
         )

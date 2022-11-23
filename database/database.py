@@ -186,7 +186,7 @@ class Database(metaclass=Singleton):
                 )
 
     @classmethod
-    def get_matches_map(cls, address, city_name) -> Map:
+    def get_matches_map(cls, address, city_name) -> Map | None:
         """
         Gets the matches map for a given address and city
 
