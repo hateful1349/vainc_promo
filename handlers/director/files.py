@@ -10,7 +10,7 @@ from aiogram.utils import exceptions
 
 from database.database import Database
 from keyboards.inline import simple_kb
-# from database.users import Rights
+
 from loader import bot, dp
 from states.states import BotStates
 from utils.helpers import join_file_parts
@@ -34,7 +34,9 @@ from utils.messages.messages import Messages
 #     await msg.answer("Что именно вы хотите сделать с городами?", reply_markup=kb)
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "new_city", state=BotStates.FILES)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "new_city", state=BotStates.FILES
+)
 async def new_city_callback(callback: types.CallbackQuery):
     with contextlib.suppress(FileNotFoundError):
         shutil.rmtree(f"{os.curdir}/.cache")
@@ -86,12 +88,7 @@ async def xlsx_get_handler(msg: types.Message, state: FSMContext):
         await msg.answer("Скачал!")
         await msg.answer(f"Теперь я жду от вас zip-архив с картами для {city_name}")
 
-        kb = simple_kb(
-            {
-                "Да": "big_size_zip",
-                "Нет": "common_zip"
-            }, 2
-        )
+        kb = simple_kb({"Да": "big_size_zip", "Нет": "common_zip"}, 2)
         await msg.answer("Размер вашего архива больше 20МБ?", reply_markup=kb)
 
 
@@ -116,10 +113,13 @@ async def big_size_zip_callback(callback: types.CallbackQuery, state: FSMContext
 
     await bot.send_message(
         chat_id=callback.message.chat.id,
-        text="Telegram API не позволяет мне скачивать файлы размером больше 20МБ, "
-             "поэтому вам необходимо разделить ваш архив, "
-             "используя WinRAR для Windows или команду split для Linux (split -b 'размер частей' "
-             "'название исходного архива' 'префикс для результирующих частей') (split -b 20M Омск.zip Омск.zip.)",
+        text="""
+Telegram API не позволяет мне скачивать файлы размером больше 20МБ,
+поэтому вам необходимо разделить ваш архив, используя WinRAR для Windows
+или команду split для Linux
+(split -b 'размер частей' 'название исходного архива' 'префикс результирующих частей')
+(split -b 20M Омск.zip Омск.zip.)
+""",
     )
     await bot.send_message(
         text="Затем отправьте мне фрагменты вашего разбитого архива",
@@ -127,11 +127,13 @@ async def big_size_zip_callback(callback: types.CallbackQuery, state: FSMContext
     )
     await bot.send_message(
         text="Когда все части будут загружены, "
-             "необходимо нажать на кнопку ниже, "
-             "что вы закончили",
+        "необходимо нажать на кнопку ниже, "
+        "что вы закончили",
         chat_id=callback.message.chat.id,
-        reply_markup=types.ReplyKeyboardMarkup(resize_keyboard=True).add(
-            types.KeyboardButton("Весь архив")
+        reply_markup=types.ReplyKeyboardMarkup(
+            resize_keyboard=True,
+        ).add(  # type: ignore
+            types.KeyboardButton("Весь архив")  # type: ignore
         ),
     )
 
@@ -182,13 +184,15 @@ async def zip_get_handler(msg: types.Message, state: FSMContext):
                 "Пожалуйста разделите файл на части по 20МБ\n"
                 "Затем отправьте мне разделенный по частям архив\n"
                 "Когда закончите, нажмите кнопку внизу",
-                reply_markup=types.ReplyKeyboardMarkup(resize_keyboard=True).add(
-                    types.KeyboardButton("Весь архив")
+                reply_markup=types.ReplyKeyboardMarkup(
+                    resize_keyboard=True,
+                ).add(  # type: ignore
+                    types.KeyboardButton("Весь архив")  # type: ignore
                 ),
             )
             await msg.answer(
-                "Для разделения архива на части вы можете воспользоваться WinRAR для Windows или командой "
-                "split в Linux"
+                "Для разделения архива на части вы можете воспользоваться WinRAR для"
+                " Windows или командой split в Linux"
             )
 
             await BotStates.WAIT_FOR_CITY_BIG_ZIP.set()
@@ -206,7 +210,7 @@ async def zip_part_handler(msg: types.Message, state: FSMContext):
         await msg.answer("Скачиваю...")
 
         async with state.proxy() as data:
-            city_name = data["city_name"]
+            # city_name = data["city_name"]
             part_index = data.get("part_index") or 0
 
         part_zip_dir_path = f"{os.curdir}/.cache/"
@@ -250,18 +254,15 @@ async def zip_part_end_handler(msg: types.Message, state: FSMContext):
     await dp.current_state(user=msg.from_user.id).reset_state()
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "remove_city", state=BotStates.FILES)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "remove_city", state=BotStates.FILES
+)
 async def remove_city_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
     cities = Database.get_cities()
 
-    kb = simple_kb(
-        {
-            city.name: f"remove_city&{city.id}"
-            for city in cities
-        }, 1
-    )
+    kb = simple_kb({city.name: f"remove_city&{city.id}" for city in cities}, 1)
 
     await bot.edit_message_text(
         "Какой город удалить?",
@@ -271,7 +272,9 @@ async def remove_city_callback(callback: types.CallbackQuery, state: FSMContext)
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data.startswith("remove_city"), state=BotStates.FILES)
+@dp.callback_query_handler(
+    lambda callback: callback.data.startswith("remove_city"), state=BotStates.FILES
+)
 async def remove_city_arg_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -282,5 +285,6 @@ async def remove_city_arg_callback(callback: types.CallbackQuery, state: FSMCont
     Database.delete_city(city_id)
 
     await bot.send_message(callback.message.chat.id, "Удаляю")
+
 
 # TODO update_city_resources()

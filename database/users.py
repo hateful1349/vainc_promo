@@ -1,3 +1,4 @@
+from typing import Optional
 from aiogram.utils import markdown
 
 from database.base import db_session
@@ -49,7 +50,8 @@ class Users(metaclass=Singleton):
     def toggle_super(cls, tg_id):
         with db_session(mode="w") as session:
             user = session.query(User).filter(User.tg_id == str(tg_id)).first()
-            user.superuser = not user.superuser
+            if user:
+                user.superuser = not user.superuser
 
     @classmethod
     def get_users(cls) -> list[User]:
@@ -84,12 +86,13 @@ class Users(metaclass=Singleton):
                 session.query(Right)
                 .join(user_right, Right.id == user_right.right_id)
                 .join(User, User.id == user_right.user_id)
-                .filter(User.tg_id == str(tg_id)).all()
+                .filter(User.tg_id == str(tg_id))
+                .all()
             )
 
     @classmethod
     def new_user(cls, tg_id, username=None, post=None, name=None, surname=None):
-        with db_session(mode='w') as session:
+        with db_session(mode="w") as session:
             session.add(User(tg_id, username, post, name, surname))
 
     @classmethod
@@ -101,7 +104,7 @@ class Users(metaclass=Singleton):
             print("Нельзя использовать и то и то")
             raise Exception
 
-        with db_session(mode='w') as session:
+        with db_session(mode="w") as session:
             if user_id:
                 session.query(User).filter(User.id == user_id).delete()
             if tg_id:
@@ -111,10 +114,11 @@ class Users(metaclass=Singleton):
     def update_user(cls, tg_id, username=None, post=None, name=None, surname=None):
         with db_session(mode="w") as session:
             user = session.query(User).filter(User.tg_id == str(tg_id)).first()
-            user.username = username or user.username
-            user.post = post or user.post
-            user.name = name or user.name
-            user.surname = surname or user.surname
+            if user:
+                user.username = username or user.username
+                user.post = post or user.post
+                user.name = name or user.name
+                user.surname = surname or user.surname
 
     @classmethod
     def get_cities(cls, tg_id) -> list[City]:
@@ -132,44 +136,60 @@ class Users(metaclass=Singleton):
         with db_session(mode="w") as session:
             user = session.query(User).filter(User.tg_id == str(tg_id)).first()
             city = session.query(City).filter(City.name.ilike(city_name)).first()
-            session.add(user_city(user.id, city.id))
+
+            if user and city:
+                session.add(user_city(user.id, city.id))
 
     @classmethod
     def del_city(cls, tg_id, city_name):
         with db_session(mode="w") as session:
             user = session.query(User).filter(User.tg_id == str(tg_id)).first()
             city = session.query(City).filter(City.name.ilike(city_name)).first()
-            session.query(user_city).filter(user_city.user_id == user.id).filter(user_city.city_id == city.id).delete()
+
+            if user and city:
+                session.query(user_city).filter(user_city.user_id == user.id).filter(
+                    user_city.city_id == city.id
+                ).delete()
 
     @classmethod
     def add_right(cls, tg_id, right_name):
         with db_session(mode="w") as session:
             user = cls.get_user(tg_id)
             right = session.query(Right).filter(Right.name.ilike(right_name)).first()
-            session.add(user_right(user.id, right.id))
+
+            if user and right:
+                session.add(user_right(user.id, right.id))
 
     @classmethod
     def del_right(cls, tg_id, right_name):
         with db_session(mode="w") as session:
             user = cls.get_user(tg_id)
             right = session.query(Right).filter(Right.name.ilike(right_name)).first()
-            session.query(user_right).filter(user_right.user_id == user.id).filter(
-                user_right.right_id == right.id).delete()
+
+            if user and right:
+                session.query(user_right).filter(user_right.user_id == user.id).filter(
+                    user_right.right_id == right.id
+                ).delete()
 
     @classmethod
     def add_manager(cls, slave_tg_id, master_tg_id):
         with db_session(mode="w") as session:
             slave = session.query(User).filter(User.tg_id == str(slave_tg_id)).first()
             master = session.query(User).filter(User.tg_id == str(master_tg_id)).first()
-            session.add(user_managers(slave.id, master.id))
+
+            if slave and master:
+                session.add(user_managers(slave.id, master.id))
 
     @classmethod
     def del_manager(cls, user_tg_id, master_tg_id):
         with db_session(mode="w") as session:
             slave = session.query(User).filter(User.tg_id == str(user_tg_id)).first()
             master = session.query(User).filter(User.tg_id == str(master_tg_id)).first()
-            session.query(user_managers).filter(user_managers.user_id == slave.id).filter(
-                user_managers.manager_id == master.id).delete()
+
+            if slave and master:
+                session.query(user_managers).filter(
+                    user_managers.user_id == slave.id
+                ).filter(user_managers.manager_id == master.id).delete()
 
     @classmethod
     def get_slaves(cls, tg_id) -> list[User]:
@@ -177,11 +197,25 @@ class Users(metaclass=Singleton):
             # return cls.get_users()
 
             user = session.query(User).filter(User.tg_id == str(tg_id)).first()
-            slaves_ids = session.query(user_managers).filter(user_managers.manager_id == user.id).all()
-            if user.superuser:
-                return session.query(User).filter(
-                    User.id.in_(list(map(lambda slave: slave.user_id, slaves_ids)))).all() + [user]
-            return session.query(User).filter(User.id.in_(list(map(lambda slave: slave.user_id, slaves_ids)))).all()
+
+            if user:
+                slaves_ids = (
+                    session.query(user_managers)
+                    .filter(user_managers.manager_id == user.id)
+                    .all()
+                )
+                if user.superuser:
+                    return session.query(User).filter(
+                        User.id.in_(list(map(lambda slave: slave.user_id, slaves_ids)))
+                    ).all() + [user]
+                return (
+                    session.query(User)
+                    .filter(
+                        User.id.in_(list(map(lambda slave: slave.user_id, slaves_ids)))
+                    )
+                    .all()
+                )
+        return []
 
     @classmethod
     def get_masters(cls, tg_id) -> list[User]:
@@ -189,9 +223,20 @@ class Users(metaclass=Singleton):
             # return cls.get_users()
 
             user = session.query(User).filter(User.tg_id == str(tg_id)).first()
-            masters_ids = session.query(user_managers).filter(user_managers.user_id == user.id).all()
-            return session.query(User).filter(
-                User.id.in_(list(map(lambda master: master.manager_id, masters_ids)))).all()
+            masters_ids = (
+                session.query(user_managers)
+                .filter(user_managers.user_id == user.id)
+                .all()
+            )
+            return (
+                session.query(User)
+                .filter(
+                    User.id.in_(
+                        list(map(lambda master: master.manager_id, masters_ids))
+                    )
+                )
+                .all()
+            )
 
     @classmethod
     def get_readable_info(cls, tg_id) -> str:
@@ -210,21 +255,34 @@ class Users(metaclass=Singleton):
             if len(user_cities) == len(Database.get_cities()):
                 res += f"\n{markdown.hbold('Город:')} любой"
             else:
-                res += f"\n{markdown.hbold('Города:')} " + ", ".join(list(map(lambda city: city.name, user_cities)))
+                res += f"\n{markdown.hbold('Города:')} " + ", ".join(
+                    list(map(lambda city: city.name, user_cities))
+                )
         if user_rights := cls.get_user_rights(tg_id):
             if len(user_rights) == len(list(Rights.comments.keys())):
                 res += f"\n{markdown.hbold('Права:')} все"
             else:
-                res += f"\n{markdown.hbold('Права:')} " + ", ".join(list(map(lambda right: right.name, user_rights)))
+                res += f"\n{markdown.hbold('Права:')} " + ", ".join(
+                    list(map(lambda right: right.name, user_rights))
+                )
         return res
 
     @classmethod
-    def get_readable_name(cls, user_obj: User = None, ) -> str:
-        return (
-                   f"{user_obj.name} {user_obj.surname}"
-                   if user_obj.name and user_obj.surname
-                   else None
-               ) or user_obj.username or user_obj.tg_id
+    def get_readable_name(
+        cls,
+        user_obj: Optional[User],
+    ) -> str:
+        if user_obj:
+            return (
+                (
+                    f"{user_obj.name} {user_obj.surname}"
+                    if user_obj.name and user_obj.surname
+                    else None
+                )
+                or user_obj.username
+                or str(user_obj.tg_id)
+            )
+        return ""
 
     @classmethod
     def get_user_actions(cls, tg_id) -> list[str]:

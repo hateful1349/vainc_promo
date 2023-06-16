@@ -1,1 +1,1 @@
-from . import handlers
+from . import handlers  # noqa: F401

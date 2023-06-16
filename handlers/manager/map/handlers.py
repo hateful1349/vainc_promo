@@ -11,6 +11,7 @@ from states.states import BotStates
 
 # ? SIMPLE TEXT HANDLERS
 
+
 @dp.message_handler(
     Text(equals=Rights.comments.get(Rights.GET_MAP)),
     user_have_rights=Rights.GET_MAP,
@@ -37,7 +38,7 @@ async def map_handler(msg: types.Message, state: FSMContext):
                     map(
                         lambda region: types.InlineKeyboardButton(
                             region.name, callback_data=f"reg={region.name}"
-                        ),
+                        ),  # type: ignore
                         sorted(regions, key=lambda reg: reg.name),
                     )
                 )
@@ -54,7 +55,7 @@ async def map_handler(msg: types.Message, state: FSMContext):
                         lambda city_obj: types.InlineKeyboardButton(
                             city_obj.name,
                             callback_data=f"{city_obj.name}",
-                        ),
+                        ),  # type: ignore
                         sorted(user_cities, key=lambda c: c.name),
                     )
                 )
@@ -72,7 +73,7 @@ async def map_handler(msg: types.Message, state: FSMContext):
 @dp.message_handler(
     Text(equals=Rights.comments.get(Rights.GET_ADDRESS)),
     user_have_rights=Rights.GET_ADDRESS,
-    state="*"
+    state="*",
 )
 async def address_handler(msg: types.Message, state: FSMContext):
     user_cities = Users.get_cities(msg.from_user.id)
@@ -98,7 +99,7 @@ async def address_handler(msg: types.Message, state: FSMContext):
                         lambda c: types.InlineKeyboardButton(
                             c.name,
                             callback_data=f"{c.name}",
-                        ),
+                        ),  # type: ignore
                         sorted(user_cities, key=lambda c: c.name),
                     )
                 )
@@ -116,7 +117,7 @@ async def address_handler(msg: types.Message, state: FSMContext):
 @dp.message_handler(
     Text(equals=Rights.comments.get(Rights.CHANGE_USER_PERMISSIONS)),
     user_have_rights=Rights.CHANGE_USER_PERMISSIONS,
-    state="*"
+    state="*",
 )
 async def main_menu_handler(msg: types.Message, state: FSMContext):
     # user = Users.get_user(msg.from_user.id)
@@ -127,11 +128,11 @@ async def main_menu_handler(msg: types.Message, state: FSMContext):
                 lambda u: types.InlineKeyboardButton(
                     Users.get_readable_name(u),
                     callback_data=f"user_menu&{u.tg_id}",
-                ),
-                sorted(Users.get_slaves(msg.from_user.id), key=lambda u: u.id)
+                ),  # type: ignore
+                sorted(Users.get_slaves(msg.from_user.id), key=lambda u: u.id),
             )
         )
-        + [types.InlineKeyboardButton("➕ Новый юзер", callback_data="new_user")]
+        + [types.InlineKeyboardButton("➕ Новый юзер", callback_data="new_user")]  # type: ignore
     )
     await msg.answer("Кого покараем/наградим?", reply_markup=kb)
     await BotStates.USER_RIGHTS.set()
@@ -141,14 +142,14 @@ async def main_menu_handler(msg: types.Message, state: FSMContext):
 @dp.message_handler(
     Text(equals=Rights.comments.get(Rights.CITY_MANAGEMENT)),
     user_have_rights=Rights.CITY_MANAGEMENT,
-    state="*"
+    state="*",
 )
 async def city_management_handler(msg: types.Message, state: FSMContext):
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         *[
-            types.KeyboardButton("Новый", callback_data="new_city"),
-            types.KeyboardButton("Изменить", callback_data="edit_city"),
-            types.KeyboardButton("Удалить", callback_data="remove_city"),
+            types.KeyboardButton("Новый", callback_data="new_city"),  # type: ignore
+            types.KeyboardButton("Изменить", callback_data="edit_city"),  # type: ignore
+            types.KeyboardButton("Удалить", callback_data="remove_city"),  # type: ignore
         ]
     )
 
@@ -171,7 +172,9 @@ async def wait_for_map_handler(msg: types.Message, state: FSMContext):
 async def wait_for_city_handler(msg: types.Message, state: FSMContext):
     request = msg.text.lower()
 
-    city = list(set(map(lambda city_obj: city_obj.name, Database.get_cities())) & {request})
+    city = list(
+        set(map(lambda city_obj: city_obj.name, Database.get_cities())) & {request}
+    )
     if not city:
         await msg.answer("Я не знаю такого города")
         return
@@ -191,7 +194,7 @@ async def wait_for_city_handler(msg: types.Message, state: FSMContext):
             map(
                 lambda region: types.InlineKeyboardButton(
                     region.name, callback_data=f"reg={region.name}"
-                ),
+                ),  # type: ignore
                 sorted(regions, key=lambda reg: reg.name),
             )
         )
@@ -222,7 +225,7 @@ async def wait_for_city_callback(callback: types.CallbackQuery, state: FSMContex
             map(
                 lambda region: types.InlineKeyboardButton(
                     region.name, callback_data=f"reg={region.name}"
-                ),
+                ),  # type: ignore
                 sorted(regions, key=lambda reg: reg.name),
             )
         )
@@ -250,7 +253,7 @@ async def region_choose_callback(callback: types.CallbackQuery, state: FSMContex
             map(
                 lambda mp: types.InlineKeyboardButton(
                     mp.name, callback_data=f"map_{mp.id}"
-                ),
+                ),  # type: ignore
                 sorted(maps, key=lambda mp: mp.name),
             )
         )
@@ -265,7 +268,8 @@ async def region_choose_callback(callback: types.CallbackQuery, state: FSMContex
 
 
 @dp.callback_query_handler(
-    lambda callback: callback.data.startswith("map_"), state=[BotStates.WAIT_FOR_MAP, BotStates.WAIT_FOR_ADDRESS]
+    lambda callback: callback.data.startswith("map_"),
+    state=[BotStates.WAIT_FOR_MAP, BotStates.WAIT_FOR_ADDRESS],
 )
 async def wait_for_map_callback(callback: types.CallbackQuery, state: FSMContext):
     request = callback.data.lower()

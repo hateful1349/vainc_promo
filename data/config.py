@@ -45,5 +45,5 @@ def load_config():
         bot=Bot(token=env.str("BOT_TOKEN")),
         db=DB(*load_db()),
         loglevel=env.str("LOGLEVEL").upper(),
-        address_search_count=env.int("ADDRESS_SEARCH_COUNT")
+        address_search_count=env.int("ADDRESS_SEARCH_COUNT"),
     )

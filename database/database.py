@@ -1,5 +1,6 @@
 import datetime
 from pathlib import Path
+from typing import Optional
 from zipfile import ZipFile
 
 from openpyxl import load_workbook
@@ -36,11 +37,7 @@ class Database(metaclass=Singleton):
             raise Exception
         with db_session() as session:
             if city_name:
-                return (
-                    session.query(City)
-                    .filter(City.name.ilike(city_name))
-                    .first()
-                )
+                return session.query(City).filter(City.name.ilike(city_name)).first()
             return session.query(City).filter(City.id == city_id).first()
 
     @classmethod
@@ -147,11 +144,7 @@ class Database(metaclass=Singleton):
                     .filter(City.name.ilike(city_name))
                     .all()
                 )
-            return (
-                session.query(Address)
-                .filter(Address.map_id == map_id)
-                .all()
-            )
+            return session.query(Address).filter(Address.map_id == map_id).all()
 
     @classmethod
     def get_maps(cls, city=None, region=None) -> list[Map]:
@@ -186,7 +179,7 @@ class Database(metaclass=Singleton):
                 )
 
     @classmethod
-    def get_matches_map(cls, address, city_name) -> Map | None:
+    def get_matches_map(cls, address: str, city_name: str) -> Optional[Map]:
         """
         Gets the matches map for a given address and city
 
@@ -196,6 +189,7 @@ class Database(metaclass=Singleton):
         :type city_name: str
         :return: The map or None if no matches
         """
+
         with db_session() as session:
             return (
                 session.query(Map)
@@ -203,10 +197,8 @@ class Database(metaclass=Singleton):
                 .join(Region, Region.id == Map.region_id)
                 .join(City, City.id == Region.city_id)
                 .filter(City.name.ilike(city_name))
-                .filter((
-                    func.concat(Address.street, ' ', Address.number)
-                    .ilike(address)
-                    )
+                .filter(
+                    (func.concat(Address.street, " ", Address.number).ilike(address))
                 )
                 .first()
             )
@@ -237,7 +229,7 @@ class Database(metaclass=Singleton):
             maps_struct = {city: {}}
             with ZipFile(filepath) as archive:
                 for file in filter(
-                        lambda filename: filename.endswith(".png"), archive.namelist()
+                    lambda filename: filename.endswith(".png"), archive.namelist()
                 ):
                     region_name = Path(file).parent.name
                     if region_name not in maps_struct.get(city):
@@ -249,7 +241,8 @@ class Database(metaclass=Singleton):
             return maps_struct
 
         import locale
-        locale.setlocale(locale.LC_ALL, ('ru_RU', 'UTF-8'))
+
+        locale.setlocale(locale.LC_ALL, ("ru_RU", "UTF-8"))
 
         maps = unpack_zip(zip_filepath, city_name)
         excel_table = load_workbook(xlsx_filepath)
@@ -257,7 +250,6 @@ class Database(metaclass=Singleton):
         for city_regions in maps.values():
             for region, region_maps in city_regions.items():
                 for map_name, map_values in region_maps.items():
-
                     map_addresses = list(
                         map(
                             lambda row: list(map(lambda cell: cell.value, row))[1:8],
@@ -344,14 +336,16 @@ class Database(metaclass=Singleton):
 
                         str_comment = map_address[4]
 
-                        map_values["addresses"].append([
-                            str_street,
-                            str_number,
-                            int_floors,
-                            int_entrances,
-                            int_flats,
-                            None,
-                            str_comment]
+                        map_values["addresses"].append(
+                            [
+                                str_street,
+                                str_number,
+                                int_floors,
+                                int_entrances,
+                                int_flats,
+                                None,
+                                str_comment,
+                            ]
                         )
         return maps
 
@@ -407,5 +401,6 @@ class Database(metaclass=Singleton):
 
         with db_session(mode="w") as session:
             session.query(City).filter(City.id == city_id).delete()
+
 
 # TODO async database

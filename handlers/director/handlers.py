@@ -1,6 +1,5 @@
 from aiogram import types
 from aiogram.dispatcher import FSMContext
-# from aiogram.dispatcher.filters import Text
 
 from database.database import Database
 from database.users import Rights, Users
@@ -33,7 +32,9 @@ from utils.messages.messages import Messages
 #     await msg.answer("Кого покараем/наградим?", reply_markup=kb)
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "main_menu", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "main_menu", state=BotStates.USER_RIGHTS
+)
 async def main_menu_callback(callback: types.CallbackQuery):
     # kb = types.InlineKeyboardMarkup().add(
     #     *list(
@@ -53,7 +54,11 @@ async def main_menu_callback(callback: types.CallbackQuery):
             for u in sorted(Users.get_slaves(callback.from_user.id), key=lambda u: u.id)
         }
     )
-    kb.add(types.InlineKeyboardButton(Messages.users_new_user_btn, callback_data="new_user"))
+    kb.add(
+        types.InlineKeyboardButton(
+            Messages.users_new_user_btn, callback_data="new_user"
+        )  # type: ignore
+    )
 
     await bot.edit_message_text(
         "Кого покараем/наградим?",
@@ -64,7 +69,9 @@ async def main_menu_callback(callback: types.CallbackQuery):
 
 
 # get new user
-@dp.callback_query_handler(lambda callback: callback.data == "new_user", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "new_user", state=BotStates.USER_RIGHTS
+)
 async def new_user_callback(callback: types.CallbackQuery):
     await bot.answer_callback_query(callback.id)
     await bot.edit_message_text(
@@ -83,7 +90,7 @@ async def new_user_message(msg: types.Message, state: FSMContext):
 
     kb = types.InlineKeyboardMarkup().add(
         *[
-            types.KeyboardButton("🔙 Назад", callback_data="main_menu"),
+            types.KeyboardButton("🔙 Назад", callback_data="main_menu"),  # type: ignore
         ]
     )
     await msg.answer(f"Пользователь с id: {user_id} добавлен", reply_markup=kb)
@@ -92,7 +99,9 @@ async def new_user_message(msg: types.Message, state: FSMContext):
 
 
 ####
-@dp.callback_query_handler(lambda callback: callback.data.startswith("user_menu"), state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data.startswith("user_menu"), state=BotStates.USER_RIGHTS
+)
 async def user_menu_callback(callback: types.CallbackQuery, state: FSMContext):
     chosen_user = callback.data.split("&")[1]
     async with state.proxy() as data:
@@ -100,21 +109,27 @@ async def user_menu_callback(callback: types.CallbackQuery, state: FSMContext):
 
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         *[
-            types.KeyboardButton("🏙️ Город", callback_data="user_cities"),
-            types.KeyboardButton("🔑 Права", callback_data="user_rights"),
-            types.KeyboardButton("💾 Данные", callback_data="user_data"),
-            types.KeyboardButton("💼 Начальство", callback_data="user_managers")
-        ])
+            types.KeyboardButton("🏙️ Город", callback_data="user_cities"),  # type: ignore
+            types.KeyboardButton("🔑 Права", callback_data="user_rights"),  # type: ignore
+            types.KeyboardButton("💾 Данные", callback_data="user_data"),  # type: ignore
+            types.KeyboardButton("💼 Начальство", callback_data="user_managers"),  # type: ignore
+        ]
+    )
     if Users.get_user(callback.from_user.id).superuser:
-        kb.add(types.KeyboardButton(f"👑 Суперюзер ({'✔️' if Users.get_user(chosen_user).superuser else '✖️'})",
-                                    callback_data="user_super"))
-    kb.add(*[
-        types.KeyboardButton(
-            "❌ Удалить нахер", callback_data=f"del_user&{chosen_user}"
-        ),
-        types.KeyboardButton("🔙 Назад", callback_data="main_menu"),
-    ]
-           )
+        kb.add(
+            types.KeyboardButton(
+                f"👑 Суперюзер ({'✔️' if Users.get_user(chosen_user).superuser else '✖️'})",
+                callback_data="user_super",
+            )  # type: ignore
+        )
+    kb.add(
+        *[
+            types.KeyboardButton(
+                "❌ Удалить нахер", callback_data=f"del_user&{chosen_user}"
+            ),  # type: ignore
+            types.KeyboardButton("🔙 Назад", callback_data="main_menu"),  # type: ignore
+        ]
+    )
 
     await bot.edit_message_text(
         Users.get_readable_info(chosen_user),
@@ -124,7 +139,9 @@ async def user_menu_callback(callback: types.CallbackQuery, state: FSMContext):
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "user_super", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "user_super", state=BotStates.USER_RIGHTS
+)
 async def user_super_toggle_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -139,18 +156,24 @@ async def user_super_toggle_callback(callback: types.CallbackQuery, state: FSMCo
             types.KeyboardButton("🏙️ Город", callback_data="user_cities"),
             types.KeyboardButton("🔑 Права", callback_data="user_rights"),
             types.KeyboardButton("💾 Данные", callback_data="user_data"),
-            types.KeyboardButton("💼 Начальство", callback_data="user_managers")
-        ])
+            types.KeyboardButton("💼 Начальство", callback_data="user_managers"),
+        ]
+    )
     if Users.get_user(callback.from_user.id).superuser:
-        kb.add(types.KeyboardButton(f"👑 Суперюзер ({'✔️' if user.superuser else '✖️'})",
-                                    callback_data="user_super"))
-    kb.add(*[
-        types.KeyboardButton(
-            "❌ Удалить нахер", callback_data=f"del_user&{user.tg_id}"
-        ),
-        types.KeyboardButton("🔙 Назад", callback_data="main_menu"),
-    ]
-           )
+        kb.add(
+            types.KeyboardButton(
+                f"👑 Суперюзер ({'✔️' if user.superuser else '✖️'})",
+                callback_data="user_super",
+            )
+        )
+    kb.add(
+        *[
+            types.KeyboardButton(
+                "❌ Удалить нахер", callback_data=f"del_user&{user.tg_id}"
+            ),
+            types.KeyboardButton("🔙 Назад", callback_data="main_menu"),
+        ]
+    )
 
     await bot.edit_message_text(
         Users.get_readable_info(user.tg_id),
@@ -162,8 +185,11 @@ async def user_super_toggle_callback(callback: types.CallbackQuery, state: FSMCo
 
 # НАЧАЛЬСТВО
 
-@dp.callback_query_handler(lambda callback: callback.data == "user_managers", state=BotStates.USER_RIGHTS)
-async def user_rights_callback(callback: types.CallbackQuery, state: FSMContext):
+
+@dp.callback_query_handler(
+    lambda callback: callback.data == "user_managers", state=BotStates.USER_RIGHTS
+)
+async def user_managers_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
     async with state.proxy() as data:
@@ -188,8 +214,10 @@ async def user_rights_callback(callback: types.CallbackQuery, state: FSMContext)
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "add_manager", state=BotStates.USER_RIGHTS)
-async def add_right_callback(callback: types.CallbackQuery, state: FSMContext):
+@dp.callback_query_handler(
+    lambda callback: callback.data == "add_manager", state=BotStates.USER_RIGHTS
+)
+async def add_manager_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
     async with state.proxy() as data:
@@ -197,17 +225,23 @@ async def add_right_callback(callback: types.CallbackQuery, state: FSMContext):
 
     users = Users.get_users()
     users_map = {user.id: user for user in users}
-    not_masters = set(map(lambda u: u.id, users)) - {Users.get_user(callback.from_user.id).id} - set(
-        map(lambda u: u.id, Users.get_masters(user_id))) - set(map(lambda u: u.id, Users.get_slaves(user_id))) - {
-                      Users.get_user(user_id).id}
+    not_masters = (
+        set(map(lambda u: u.id, users))
+        - {Users.get_user(callback.from_user.id).id}
+        - set(map(lambda u: u.id, Users.get_masters(user_id)))
+        - set(map(lambda u: u.id, Users.get_slaves(user_id)))
+        - {Users.get_user(user_id).id}
+    )
 
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         *list(
             map(
-                lambda u_id: types.KeyboardButton(Users.get_readable_name(users_map[u_id]),
-                                                  callback_data=f"add_manager&{users_map[u_id].tg_id}"),
+                lambda u_id: types.KeyboardButton(
+                    Users.get_readable_name(users_map[u_id]),
+                    callback_data=f"add_manager&{users_map[u_id].tg_id}",
+                ),
                 # all_users - self - user_masters - user_slaves - user
-                sorted(not_masters)
+                sorted(not_masters),
             )
         )
         + [types.KeyboardButton("🔙 Назад", callback_data="user_managers")]
@@ -221,8 +255,11 @@ async def add_right_callback(callback: types.CallbackQuery, state: FSMContext):
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data.startswith("add_manager"), state=BotStates.USER_RIGHTS)
-async def add_right_arg_callback(callback: types.CallbackQuery, state: FSMContext):
+@dp.callback_query_handler(
+    lambda callback: callback.data.startswith("add_manager"),
+    state=BotStates.USER_RIGHTS,
+)
+async def add_manager_arg_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
     master_user_id = callback.data.split("&")[1]
@@ -236,16 +273,22 @@ async def add_right_arg_callback(callback: types.CallbackQuery, state: FSMContex
 
     users = Users.get_users()
     users_map = {user.id: user for user in users}
-    not_masters = set(map(lambda u: u.id, users)) - {Users.get_user(callback.from_user.id).id} - set(
-        map(lambda u: u.id, user_masters)) - set(map(lambda u: u.id, Users.get_slaves(user_id))) - {
-                      Users.get_user(user_id).id}
+    not_masters = (
+        set(map(lambda u: u.id, users))
+        - {Users.get_user(callback.from_user.id).id}
+        - set(map(lambda u: u.id, user_masters))
+        - set(map(lambda u: u.id, Users.get_slaves(user_id)))
+        - {Users.get_user(user_id).id}
+    )
 
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         *list(
             map(
-                lambda u_id: types.KeyboardButton(Users.get_readable_name(users_map[u_id]),
-                                                  callback_data=f"add_manager&{users_map[u_id].tg_id}"),
-                sorted(not_masters)
+                lambda u_id: types.KeyboardButton(
+                    Users.get_readable_name(users_map[u_id]),
+                    callback_data=f"add_manager&{users_map[u_id].tg_id}",
+                ),
+                sorted(not_masters),
             )
         )
         + [types.KeyboardButton("🔙 Назад", callback_data="user_managers")]
@@ -261,8 +304,10 @@ async def add_right_arg_callback(callback: types.CallbackQuery, state: FSMContex
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "del_manager", state=BotStates.USER_RIGHTS)
-async def del_right_callback(callback: types.CallbackQuery, state: FSMContext):
+@dp.callback_query_handler(
+    lambda callback: callback.data == "del_manager", state=BotStates.USER_RIGHTS
+)
+async def del_manager_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
     async with state.proxy() as data:
@@ -270,16 +315,21 @@ async def del_right_callback(callback: types.CallbackQuery, state: FSMContext):
 
     users = Users.get_users()
     users_map = {user.id: user for user in users}
-    masters = set(map(lambda u: u.id, Users.get_masters(user_id))) - {Users.get_user(callback.from_user.id).id} - set(
-        map(lambda u: u.id, Users.get_masters(callback.from_user.id)))
+    masters = (
+        set(map(lambda u: u.id, Users.get_masters(user_id)))
+        - {Users.get_user(callback.from_user.id).id}
+        - set(map(lambda u: u.id, Users.get_masters(callback.from_user.id)))
+    )
     # user_masters - self - self_masters
 
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         *list(
             map(
-                lambda u_id: types.KeyboardButton(Users.get_readable_name(users_map[u_id]),
-                                                  callback_data=f"del_manager&{users_map[u_id].tg_id}"),
-                sorted(masters)
+                lambda u_id: types.KeyboardButton(
+                    Users.get_readable_name(users_map[u_id]),
+                    callback_data=f"del_manager&{users_map[u_id].tg_id}",
+                ),
+                sorted(masters),
             )
         )
         + [types.KeyboardButton("🔙 Назад", callback_data="user_managers")]
@@ -294,8 +344,11 @@ async def del_right_callback(callback: types.CallbackQuery, state: FSMContext):
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data.startswith("del_manager"), state=BotStates.USER_RIGHTS)
-async def del_right_arg_callback(callback: types.CallbackQuery, state: FSMContext):
+@dp.callback_query_handler(
+    lambda callback: callback.data.startswith("del_manager"),
+    state=BotStates.USER_RIGHTS,
+)
+async def del_manager_arg_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
     master_user_id = callback.data.split("&")[1]
@@ -308,16 +361,21 @@ async def del_right_arg_callback(callback: types.CallbackQuery, state: FSMContex
     users = Users.get_users()
     users_map = {user.id: user for user in users}
     user_masters = Users.get_masters(user_id)
-    masters = set(map(lambda u: u.id, user_masters)) - {Users.get_user(callback.from_user.id).id} - set(
-        map(lambda u: u.id, Users.get_masters(callback.from_user.id)))
+    masters = (
+        set(map(lambda u: u.id, user_masters))
+        - {Users.get_user(callback.from_user.id).id}
+        - set(map(lambda u: u.id, Users.get_masters(callback.from_user.id)))
+    )
     # user_masters - self - self_masters
 
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         *list(
             map(
-                lambda u_id: types.KeyboardButton(Users.get_readable_name(users_map[u_id]),
-                                                  callback_data=f"del_manager&{users_map[u_id].tg_id}"),
-                sorted(masters)
+                lambda u_id: types.KeyboardButton(
+                    Users.get_readable_name(users_map[u_id]),
+                    callback_data=f"del_manager&{users_map[u_id].tg_id}",
+                ),
+                sorted(masters),
             )
         )
         + [types.KeyboardButton("🔙 Назад", callback_data="user_managers")]
@@ -336,7 +394,9 @@ async def del_right_arg_callback(callback: types.CallbackQuery, state: FSMContex
 #############
 
 
-@dp.callback_query_handler(lambda callback: callback.data.startswith("del_user"), state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data.startswith("del_user"), state=BotStates.USER_RIGHTS
+)
 async def delete_user_arg_callback(callback: types.CallbackQuery):
     await bot.answer_callback_query(callback.id)
 
@@ -357,7 +417,9 @@ async def delete_user_arg_callback(callback: types.CallbackQuery):
 # CITY MANIPULATING
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "user_cities", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "user_cities", state=BotStates.USER_RIGHTS
+)
 async def user_cities_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -383,7 +445,9 @@ async def user_cities_callback(callback: types.CallbackQuery, state: FSMContext)
 # CITY ADD
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "add_city", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "add_city", state=BotStates.USER_RIGHTS
+)
 async def add_city_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -395,10 +459,11 @@ async def add_city_callback(callback: types.CallbackQuery, state: FSMContext):
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         *list(
             map(
-                lambda c: types.KeyboardButton(
-                    c, callback_data=f"add_city&{c}"
+                lambda c: types.KeyboardButton(c, callback_data=f"add_city&{c}"),
+                sorted(
+                    set(map(lambda c: c.name, Database.get_cities()))
+                    - set(map(lambda c: c.name, user_cities))
                 ),
-                sorted(set(map(lambda c: c.name, Database.get_cities())) - set(map(lambda c: c.name, user_cities)))
             )
         )
         + [types.KeyboardButton("🔙 Назад", callback_data="user_cities")]
@@ -411,7 +476,9 @@ async def add_city_callback(callback: types.CallbackQuery, state: FSMContext):
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data.startswith("add_city"), state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data.startswith("add_city"), state=BotStates.USER_RIGHTS
+)
 async def add_city_arg_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -427,17 +494,19 @@ async def add_city_arg_callback(callback: types.CallbackQuery, state: FSMContext
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         *list(
             map(
-                lambda c: types.KeyboardButton(
-                    c, callback_data=f"add_city&{c}"
+                lambda c: types.KeyboardButton(c, callback_data=f"add_city&{c}"),
+                sorted(
+                    set(map(lambda c: c.name, Database.get_cities()))
+                    - set(map(lambda c: c.name, user_cities))
                 ),
-                sorted(set(map(lambda c: c.name, Database.get_cities())) - set(map(lambda c: c.name, user_cities)))
             )
         )
         + [types.KeyboardButton("🔙 Назад", callback_data="user_cities")]
     )
 
     await bot.edit_message_text(
-        (", ".join(list(map(lambda c: c.name, user_cities)))) + f"\nГород {city} добавлен",
+        (", ".join(list(map(lambda c: c.name, user_cities))))
+        + f"\nГород {city} добавлен",
         callback.message.chat.id,
         callback.message.message_id,
         reply_markup=kb,
@@ -449,7 +518,9 @@ async def add_city_arg_callback(callback: types.CallbackQuery, state: FSMContext
 # CITY DELETE
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "del_city", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "del_city", state=BotStates.USER_RIGHTS
+)
 async def del_city_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -458,15 +529,15 @@ async def del_city_callback(callback: types.CallbackQuery, state: FSMContext):
 
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         *(
-                list(
-                    map(
-                        lambda city: types.KeyboardButton(
-                            city.name, callback_data=f"del_city&{city.name}"
-                        ),
-                        sorted(Users.get_cities(user_id), key=lambda c: c.name),
-                    )
+            list(
+                map(
+                    lambda city: types.KeyboardButton(
+                        city.name, callback_data=f"del_city&{city.name}"
+                    ),
+                    sorted(Users.get_cities(user_id), key=lambda c: c.name),
                 )
-                + [types.KeyboardButton("🔙 Назад", callback_data="user_cities")]
+            )
+            + [types.KeyboardButton("🔙 Назад", callback_data="user_cities")]
         )
     )
 
@@ -478,7 +549,9 @@ async def del_city_callback(callback: types.CallbackQuery, state: FSMContext):
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data.startswith("del_city"), state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data.startswith("del_city"), state=BotStates.USER_RIGHTS
+)
 async def del_city_arg_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -493,20 +566,21 @@ async def del_city_arg_callback(callback: types.CallbackQuery, state: FSMContext
 
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         *(
-                list(
-                    map(
-                        lambda c: types.KeyboardButton(
-                            c.name, callback_data=f"del_city&{c.name}"
-                        ),
-                        sorted(user_cities, key=lambda c: c.name),
-                    )
+            list(
+                map(
+                    lambda c: types.KeyboardButton(
+                        c.name, callback_data=f"del_city&{c.name}"
+                    ),
+                    sorted(user_cities, key=lambda c: c.name),
                 )
-                + [types.KeyboardButton("🔙 Назад", callback_data="user_cities")]
+            )
+            + [types.KeyboardButton("🔙 Назад", callback_data="user_cities")]
         )
     )
 
     await bot.edit_message_text(
-        (", ".join(list(map(lambda city: city.name, user_cities))) or "Город не задан") + f"\nГород {city_name} удален",
+        (", ".join(list(map(lambda city: city.name, user_cities))) or "Город не задан")
+        + f"\nГород {city_name} удален",
         callback.message.chat.id,
         callback.message.message_id,
         reply_markup=kb,
@@ -516,7 +590,9 @@ async def del_city_arg_callback(callback: types.CallbackQuery, state: FSMContext
 #####
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "user_rights", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "user_rights", state=BotStates.USER_RIGHTS
+)
 async def user_rights_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -540,7 +616,9 @@ async def user_rights_callback(callback: types.CallbackQuery, state: FSMContext)
         )
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "add_right", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "add_right", state=BotStates.USER_RIGHTS
+)
 async def add_right_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -551,7 +629,10 @@ async def add_right_callback(callback: types.CallbackQuery, state: FSMContext):
         *list(
             map(
                 lambda r: types.KeyboardButton(r, callback_data=f"add_right&{r}"),
-                sorted(set(Rights.comments.keys()) - set(map(lambda r: r.name, Users.get_user_rights(user_id)))),
+                sorted(
+                    set(Rights.comments.keys())
+                    - set(map(lambda r: r.name, Users.get_user_rights(user_id)))
+                ),
             )
         )
         + [types.KeyboardButton("🔙 Назад", callback_data="user_rights")]
@@ -565,7 +646,9 @@ async def add_right_callback(callback: types.CallbackQuery, state: FSMContext):
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data.startswith("add_right"), state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data.startswith("add_right"), state=BotStates.USER_RIGHTS
+)
 async def add_right_arg_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -582,21 +665,27 @@ async def add_right_arg_callback(callback: types.CallbackQuery, state: FSMContex
         *list(
             map(
                 lambda r: types.KeyboardButton(r, callback_data=f"add_right&{r}"),
-                sorted(set(Rights.comments.keys()) - set(map(lambda r: r.name, Users.get_user_rights(user_id)))),
+                sorted(
+                    set(Rights.comments.keys())
+                    - set(map(lambda r: r.name, Users.get_user_rights(user_id)))
+                ),
             )
         )
         + [types.KeyboardButton("🔙 Назад", callback_data="user_rights")]
     )
 
     await bot.edit_message_text(
-        (", ".join(list(map(lambda r: r.name, user_rights))) or "Нет прав") + f"\nПраво {right} добавлено",
+        (", ".join(list(map(lambda r: r.name, user_rights))) or "Нет прав")
+        + f"\nПраво {right} добавлено",
         callback.message.chat.id,
         callback.message.message_id,
         reply_markup=kb,
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "del_right", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "del_right", state=BotStates.USER_RIGHTS
+)
 async def del_right_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -606,8 +695,10 @@ async def del_right_callback(callback: types.CallbackQuery, state: FSMContext):
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         *list(
             map(
-                lambda r: types.KeyboardButton(r.name, callback_data=f"del_right&{r.name}"),
-                sorted(Users.get_user_rights(user_id), key=lambda r: r.name)
+                lambda r: types.KeyboardButton(
+                    r.name, callback_data=f"del_right&{r.name}"
+                ),
+                sorted(Users.get_user_rights(user_id), key=lambda r: r.name),
             )
         )
         + [types.KeyboardButton("🔙 Назад", callback_data="user_rights")]
@@ -621,7 +712,9 @@ async def del_right_callback(callback: types.CallbackQuery, state: FSMContext):
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data.startswith("del_right"), state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data.startswith("del_right"), state=BotStates.USER_RIGHTS
+)
 async def del_right_arg_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -637,22 +730,27 @@ async def del_right_arg_callback(callback: types.CallbackQuery, state: FSMContex
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         *list(
             map(
-                lambda r: types.KeyboardButton(r.name, callback_data=f"del_right&{r.name}"),
-                sorted(user_rights, key=lambda r: r.name)
+                lambda r: types.KeyboardButton(
+                    r.name, callback_data=f"del_right&{r.name}"
+                ),
+                sorted(user_rights, key=lambda r: r.name),
             )
         )
         + [types.KeyboardButton("🔙 Назад", callback_data="user_rights")]
     )
 
     await bot.edit_message_text(
-        (", ".join(list(map(lambda r: r.name, user_rights))) or "Нет прав") + f"\nПраво {right} удалено",
+        (", ".join(list(map(lambda r: r.name, user_rights))) or "Нет прав")
+        + f"\nПраво {right} удалено",
         callback.message.chat.id,
         callback.message.message_id,
         reply_markup=kb,
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "user_data", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "user_data", state=BotStates.USER_RIGHTS
+)
 async def user_data_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -677,7 +775,9 @@ async def user_data_callback(callback: types.CallbackQuery, state: FSMContext):
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "edit_username", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "edit_username", state=BotStates.USER_RIGHTS
+)
 async def edit_id_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -727,7 +827,9 @@ async def username_handler(msg: types.Message, state: FSMContext):
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "edit_name", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "edit_name", state=BotStates.USER_RIGHTS
+)
 async def edit_name_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -744,7 +846,9 @@ async def edit_name_callback(callback: types.CallbackQuery, state: FSMContext):
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "edit_surname", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "edit_surname", state=BotStates.USER_RIGHTS
+)
 async def edit_surname_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -821,7 +925,9 @@ async def surname_handler(msg: types.Message, state: FSMContext):
     )
 
 
-@dp.callback_query_handler(lambda callback: callback.data == "edit_post", state=BotStates.USER_RIGHTS)
+@dp.callback_query_handler(
+    lambda callback: callback.data == "edit_post", state=BotStates.USER_RIGHTS
+)
 async def edit_post_callback(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
@@ -867,6 +973,7 @@ async def post_handler(msg: types.Message, state: FSMContext):
         reply_markup=kb,
     )
 
+
 ####
 
-# TODO: пролистываение пунктов меню
+# TODO пролистываение пунктов меню

@@ -22,7 +22,7 @@ async def handle_text(msg: types.Message):
     if len(lines) == 0:
         await msg.answer(
             Messages.default_message_null,
-            reply_markup=types.ReplyKeyboardRemove(),
+            reply_markup=types.ReplyKeyboardRemove(),  # type: ignore
         )
     else:
         await msg.answer(
