@@ -1,22 +1,16 @@
-from sqlalchemy import Column, ForeignKey, Integer, LargeBinary, String, Boolean
-from sqlalchemy.orm import relationship
+from typing import List, Optional
+from sqlalchemy import Column, ForeignKey, Integer, LargeBinary, String, Boolean, false
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from database.base import Base
 
 
 class City(Base):
-    """
-    Represents a city in the database.
-    """
-
     __tablename__ = "city"
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    regions = relationship(
-        "Region",
-        backref="city",
-        passive_deletes="all",
-    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    regions: Mapped[List["Region"]] = relationship(passive_deletes="all")
 
     def __init__(self, name):
         self.name = name
@@ -26,23 +20,18 @@ class City(Base):
 
 
 class Region(Base):
-    """
-    Represents a region in the database.
-    """
-
     __tablename__ = "region"
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    city_id = Column(
-        Integer,
-        ForeignKey("city.id", ondelete="CASCADE"),
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    city_id = mapped_column(
+        ForeignKey(
+            "city.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
     )
-    maps = relationship(
-        "Map",
-        backref="region",
-        passive_deletes="all",
-    )
+    maps: Mapped[List["Map"]] = relationship(passive_deletes="all")
 
     def __init__(self, name, city_id):
         self.name = name
@@ -53,24 +42,19 @@ class Region(Base):
 
 
 class Map(Base):
-    """
-    Represents a map in the database.
-    """
-
     __tablename__ = "map"
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    picture = Column(LargeBinary)
-    region_id = Column(
-        Integer,
-        ForeignKey("region.id", ondelete="CASCADE"),
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    picture: Mapped[bytes]
+    region_id = mapped_column(
+        ForeignKey(
+            "region.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
     )
-    addresses = relationship(
-        "Address",
-        backref="map",
-        passive_deletes="all",
-    )
+    addresses: Mapped[List["Address"]] = relationship(passive_deletes="all")
 
     def __init__(self, name, picture_bytes, region_id):
         self.name = name
@@ -82,35 +66,26 @@ class Map(Base):
 
 
 class Address(Base):
-    """
-    Represents an address in the database.
-    """
-
     __tablename__ = "address"
-    id = Column(Integer, primary_key=True)
-    street = Column(String)
-    number = Column(String)
-    floors = Column(Integer, nullable=True)
-    entrances = Column(Integer, nullable=True)
-    flats = Column(Integer)  # квартиры
-    mailboxes = Column(Integer, nullable=True)
-    comment = Column(String, nullable=True)
-    map_id = Column(
-        Integer,
-        ForeignKey("map.id", ondelete="CASCADE"),
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    street: Mapped[str]
+    number: Mapped[str]
+    floors: Mapped[int] = mapped_column(nullable=True)
+    entrances: Mapped[int] = mapped_column(nullable=True)
+    flats: Mapped[int]  # квартиры
+    mailboxes: Mapped[int] = mapped_column(nullable=True)
+    comment: Mapped[str] = mapped_column(nullable=True)
+    map_id = mapped_column(
+        ForeignKey(
+            "map.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
     )
 
     def __init__(
-            self,
-            street,
-            number,
-            floors,
-            entrances,
-            flats,
-            mailboxes,
-            comment,
-            map_id
+        self, street, number, floors, entrances, flats, mailboxes, comment, map_id
     ):
         self.street = street
         self.number = number
@@ -122,14 +97,23 @@ class Address(Base):
         self.map_id = map_id
 
     def __repr__(self) -> str:
-        return f"<Address: '{self.street}', '{self.number}', '{self.floors}', " \
-               f"'{self.entrances}', '{self.flats}', '{self.mailboxes}', '{self.comment}', '{self.map_id}'>"
+        return (
+            f"<Address: '{self.street}', '{self.number}', '{self.floors}', "
+            f"'{self.entrances}', '{self.flats}', '{self.mailboxes}', '{self.comment}', '{self.map_id}'>"
+        )
 
 
 class user_city(Base):
     __tablename__ = "user_city"
-    user_id = Column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False, primary_key=True)
-    city_id = Column(ForeignKey("city.id", ondelete="CASCADE"), nullable=False, primary_key=True)
+
+    user_id = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    city_id = mapped_column(
+        ForeignKey("city.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     city = relationship("City")
 
     def __init__(self, user_id, city_id):
@@ -142,8 +126,15 @@ class user_city(Base):
 
 class user_right(Base):
     __tablename__ = "user_right"
-    user_id = Column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False, primary_key=True)
-    right_id = Column(ForeignKey("right.id", ondelete="CASCADE"), nullable=False, primary_key=True)
+
+    user_id = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    right_id = mapped_column(
+        ForeignKey("right.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     right = relationship("Right")
 
     def __init__(self, user_id, right_id):
@@ -156,8 +147,15 @@ class user_right(Base):
 
 class user_managers(Base):
     __tablename__ = "user_managers"
-    user_id = Column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False, primary_key=True)
-    manager_id = Column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False, primary_key=True)
+
+    user_id = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    manager_id = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     manager = relationship("User", foreign_keys=[manager_id])
 
     def __init__(self, user_id, manager_id):
@@ -169,23 +167,27 @@ class user_managers(Base):
 
 
 class User(Base):
-    """
-    Represents a user in the database.
-    """
-
     __tablename__ = "user"
-    id = Column(Integer, primary_key=True)
-    tg_id = Column(String, unique=True, nullable=False)
-    username = Column(String, nullable=True)
-    post = Column(String, nullable=True)
-    name = Column(String, nullable=True)
-    surname = Column(String, nullable=True)
-    superuser = Column(Boolean, default=False)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tg_id: Mapped[int] = mapped_column(unique=True, nullable=False)
+    username: Mapped[str] = mapped_column(nullable=True)
+    post: Mapped[str] = mapped_column(nullable=True)
+    name: Mapped[str] = mapped_column(nullable=True)
+    surname: Mapped[str] = mapped_column(nullable=True)
+    superuser: Mapped[bool] = mapped_column(default=False)
     cities = relationship("user_city")
     rights = relationship("user_right")
     managers = relationship("user_managers", foreign_keys="user_managers.manager_id")
 
-    def __init__(self, tg_id, username=None, post=None, name=None, surname=None):
+    def __init__(
+        self,
+        tg_id: int,
+        username: Optional[str],
+        post: Optional[str],
+        name: Optional[str],
+        surname: Optional[str],
+    ):
         self.tg_id = tg_id
         self.username = username
         self.post = post
@@ -193,12 +195,14 @@ class User(Base):
         self.surname = surname
 
     def __repr__(self) -> str:
-        return f"<User: '{self.tg_id}', " \
-               f"'{self.username}', " \
-               f"'{self.post}', " \
-               f"'{self.name}', " \
-               f"'{self.surname}', " \
-               f"'{self.superuser}'>"
+        return (
+            f"<User: '{self.tg_id}', "
+            f"'{self.username}', "
+            f"'{self.post}', "
+            f"'{self.name}', "
+            f"'{self.surname}', "
+            f"'{self.superuser}'>"
+        )
 
 
 class Right(Base):
