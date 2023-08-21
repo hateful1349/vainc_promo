@@ -30,7 +30,7 @@ pyflakes==3.0.1
 pyparsing==3.0.9
 python-dotenv==1.0.0
 pytz==2023.3
-SQLAlchemy==2.0.16
+SQLAlchemy==2.0.20
 tomli==2.0.1
 typing_extensions==4.6.3
 yarl==1.9.2
